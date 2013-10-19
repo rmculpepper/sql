@@ -1,0 +1,185 @@
+Focusing on select and table exressions first.
+
+====
+
+Concrete syntax, from pp133-134:
+
+table-expr =
+    join-table-expr
+  | nonjoin-table-expr
+
+join-table-expr = 
+    table-ref CROSS JOIN table-ref
+  | table-ref [NATURAL] [join-type] JOIN table-ref
+  | table-ref [join-type] JOIN table-ref ON conditional-expr
+  | table-ref [join-type] JOIN table-ref USING (column ...)
+  | (join-table-expr)
+
+table-ref =
+    join-table-expr
+  | table [[AS] range-variable [(column ...)]]
+  | (table-expr) [AS] range-variable [(column ...)]
+
+join-type = INNER | LEFT | RIGHT | FULL | UNION
+
+nonjoin-table-expr =
+    nonjoin-table-term
+  | table-expr { UNION | EXCEPT } [ALL] [CORRESPONDING [BY (column ...)]] table-term
+
+nonjoin-table-term = 
+    nonjoin-table-primary
+  | table-term INTERSECT [ALL] [CORRESPONDING [BY (column ...)]] table-primary
+
+table-term =
+    join-table-expr
+  | nonjoin-table-term
+
+table-primary =
+    join-table-expr
+  | nonjoin-table-primary
+
+nonjoin-table-primary = 
+    (nonjoin-table-expr)
+  | select-expr
+  | TABLE table
+  | table-constructor
+
+table-constructor =
+    VALUES row-constructor ...
+
+row-constructor =
+    (row-component ...)
+  | (table-expr)
+
+select-expr =
+    SELECT ___
+
+select-item =
+    scalar-expr [[AS] column]
+  | [range-variable.]*
+
+
+----
+
+Abstract syntax
+
+table-ref =
+    table
+  | table AS range-variable [(column ...)]
+  | table-expr AS range-variable [(column ...)]
+  | join-table-expr
+
+table-expr =
+    join-table-expr
+  | table-expr set-op-app table-expr
+  | select-expr
+  | TABLE table
+  | table-constructor
+
+join-table-expr = 
+    table-ref [joining] table-ref
+
+joining =
+    CROSS JOIN
+  | UNION JOIN
+  | NATURAL [join-kind] JOIN
+  | [join-kind] JOIN _ ON conditional-expr
+  | [join-kind] JOIN _ USING (column ...)
+
+join-kind =
+    INNER
+  | LEFT
+  | RIGHT
+  | FULL
+
+set-op-app =
+    [set-op]
+  | [set-op] CORRESPONDING                              ;; ???
+  | [set-op] CORRESPONDING BY (column ...)
+
+set-op =
+    UNION [ALL]
+  | EXCEPT [ALL]
+  | INTERSECT [ALL]
+
+select-expr =
+  SELECT [ALL | DISTINCT] select-item ...
+         FROM table-ref ...
+       [ WHERE conditional-expr ]
+       [ GROUP BY column ... ]
+       [ HAVING conditional-expr ]
+
+table-constructor =
+  VALUES row-constructor ...
+
+row-constructor =
+    row-component ...
+  | table-expr-as-row-query
+
+----
+
+S-expr syntax
+
+table-ref =
+    table-ID
+  | table-expr
+  | (as table-ID range-var-uid [#:columns (column-uid ...)])
+  | (as table-expr range-var-uid [#:columns (column-uid ...)])
+  | join-table-expr
+
+table-expr =
+    join-table-expr
+  | (set-op table-expr table-expr all-opt set-op-opt)
+  | select-expr
+  | (table table-ID)
+  | (values row-constructor ...)
+
+join-table-expr =
+    (join-op0 table-ref table-ref)
+  | (join-op1 table-ref table-ref join-op1-opt)
+
+join-op0 =
+    cross-join
+  | union-join
+
+join-op1 =
+    inner-join
+  | left-join
+  | right-join
+  | full-join
+
+join-op1-opt =
+    #:natural
+  | #:on condition-expr
+  | #:using (column-uid ...)
+
+all-opt =
+    \epsilon
+  | #:all
+
+set-op-opt =
+    \epsilon
+  | #:corresponding auto
+  | #:corresponding (column-uid ...)
+
+select-expr =                           ;; clauses in any order, optional except #:values
+  (select #:from table-ref ...
+          #:values select-item ...
+          #:where conditional-expr ...
+          #:group-by column-ID ...
+          #:having conditional-expr ...)
+
+row-constructor =
+    (row scalar-expr ...)
+  | (row-query table-expr)
+
+
+
+*-uid =
+    symbol                      ;; no dots
+  | string                      ;; no dots
+
+*-ID =
+    symbol                      ;; dot-separated
+  | string                      ;; dot-separated
+  | (qid symbol/string ...+)    ;; dots interpreted literally (if possible)
