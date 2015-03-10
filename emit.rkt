@@ -2,73 +2,139 @@
 
 #lang racket/base
 (require racket/string
+         racket/list
          (rename-in racket/match [match-define defmatch])
          racket/format
          "ast.rkt")
 (provide (all-defined-out))
+
+;; ============================================================
+;; Util: jumbles
+
+;; A Jumble is String | (Listof Jumble)
+(define (J . args) args)
+(define (J-join js sep) (add-between js sep))
+
+(define (jumble->string j)
+  (define out (open-output-string))
+  (let loop ([j j])
+    (cond [(string? j) (write-string j out)]
+          [else (for-each loop j)]))
+  (get-output-string out))
+
+;; ============================================================
+;; Emit according to concrete syntax for minimal parenthesization.
+
+(define (table-ref->string t)
+  (jumble->string (emit-table-ref t)))
+(define (table-expr->string t)
+  (jumble->string (emit-table-expr t)))
+(define (scalar-expr->string e)
+  (jumble->string (emit-scalar-expr e)))
+
+;; ----------------------------------------
+
+(define (emit-table-expr t)
+  (cond [(join-table-expr? t)
+         (emit-join-table-expr t)]
+        [(nonjoin-table-expr? t)
+         (emit-nonjoin-table-expr t)]))
+
+(define (emit-join-table-expr t)
+  (match t
+    [(table-expr:cross-join t1 t2)
+     (J (emit-table-ref t1)
+        " CROSS JOIN "
+        (emit-table-ref t2))]
+    [(table-expr:join type t1 t2 on)
+     (J (emit-table-ref t1)
+        (match on
+          [`(natural) " NATURAL"]
+          [_""])
+        (case type
+          [(inner-join) " INNER JOIN "]
+          [(left-join)  " LEFT OUTER JOIN "]
+          [(right-join) " RIGHT OUTER JOIN "]
+          [(full-join)  " FULL OUTER JOIN "]
+          [(union-join) " UNION JOIN "])
+        (emit-table-ref t2)
+        (match on
+          [`(using ,columns)
+           (J " USING (" (J-join (map emit-id columns) ",") ")")]
+          [`(on ,condition)
+           (J " ON " (emit-scalar-expr condition))]
+          [_ ""]))]))
 
 (define (emit-table-ref t)
   (match t
     [(table-ref:id table-name)
      (emit-id table-name)]
     [(table-ref:as (table-ref:id table-name) rangevar)
-     (~a (emit-id table-name) " AS " (emit-id rangevar))]
+     (J (emit-id table-name) " AS " (emit-id rangevar))]
     [(table-ref:as table-expr rangevar)
-     (~a "(" (emit-table-expr table-expr) ") AS " (emit-id rangevar))]
-    [(? table-expr?)
-     (~a "(" (emit-table-expr t) ")")]))
+     (J "(" (emit-table-expr table-expr) ") AS " (emit-id rangevar))]
+    [(? join-table-expr?)
+     (emit-join-table-expr t)]
+    [_
+     (eprintf "WARNING: may be illegal\n")
+     (J "(" (emit-table-expr t) ")")]))
 
-(define (emit-table-expr t)
+(define (emit-nonjoin-table-expr t)
   (match t
-    [(table-expr:cross-join t1 t2)
-     (~a (emit-table-ref t1)
-         " CROSS JOIN "
-         (emit-table-ref t2))]
-    [(table-expr:join type t1 t2 on)
-     (~a "("
-         (emit-table-ref t1)
-         (match on
-           [`(natural) " NATURAL"]
-           [_""])
-         (case type
-           [(inner-join) " INNER JOIN "]
-           [(left-join)  " LEFT OUTER JOIN "]
-           [(right-join) " RIGHT OUTER JOIN "]
-           [(full-join)  " FULL OUTER JOIN "]
-           [(union-join) " UNION JOIN "])
-         (emit-table-ref t2)
-         (match on
-           [`(using ,columns)
-            (~a " USING (" (string-join (map emit-id columns) ",") ")")]
-           [`(on ,condition)
-            (~a " ON " (emit-scalar-expr condition))]
-           [_ ""])
-         ")")]
-    [(table-expr:set-op type t1 t2 opt corr)
-     (~a "("
-         (emit-table-ref t1)
-         (case type
-           [(union) " UNION "]
-           [(except) " EXCEPT "]
-           [(intersect) " INTERSECT "])
-         (case opt
-           [(all) "ALL "]
-           [else ""])
-         (match corr
-           [`#f ""]
-           [`#t "CORRESPONDING "]
-           [(list columns ...)
-            (~a "CORRESPONDING (" (string-join columns ",") ") ")])
-         (emit-table-ref t2)
-         ")")]
+    [(table-expr:set-op (and type (or 'union 'except)) t1 t2 opt corr)
+     (J (emit-table-expr t1)
+        (emit-set-op-parts type opt corr)
+        (emit-table-term t2))]
+    [_ (emit-nonjoin-table-term t)]))
+
+(define (emit-table-term t)
+  (cond [(join-table-expr? t)
+         (emit-join-table-expr t)]
+        [else
+         (emit-nonjoin-table-term t)]))
+
+(define (emit-nonjoin-table-term t)
+  (match t
+    [(table-expr:set-op (and type 'intersect) t1 t2 opt corr)
+     (J (emit-table-term t1)
+        (emit-set-op-parts type opt corr)
+        (emit-table-primary t2))]
+    [_ (emit-nonjoin-table-term t)]))
+
+(define (emit-table-primary t)
+  (cond [(join-table-expr? t)
+         (emit-join-table-expr t)]
+        [else
+         (emit-nonjoin-table-primary t)]))
+
+(define (emit-nonjoin-table-primary t)
+  (match t
+    ;; [(table-expr:table ...) ...] ;; "TABLE table-name"
     [(table-expr:values rows)
-     (~a "VALUES "
-         (string-join
-          (for/list ([row rows])
-            (~a "(" (string-join (map emit-scalar-expr row) ",") ")"))
-          ","))]
+     (J "VALUES "
+        (string-join
+         (for/list ([row rows])
+           (J "(" (J-join (map emit-scalar-expr row) ",") ")"))
+         ","))]
     [(table-expr:select select)
-     (error 'unimplemented)]))
+     (error 'unimplemented)]
+    [_ (J "(" (emit-table-expr t) ")")]))
+
+(define (emit-set-op-parts type opt corr)
+  (J (case type
+       [(union) " UNION "]
+       [(except) " EXCEPT "]
+       [(intersect) " INTERSECT "])
+     (case opt
+       [(all) "ALL "]
+       [else ""])
+     (match corr
+       [`#f ""]
+       [`#t "CORRESPONDING "]
+       [(list columns ...)
+        (~a "CORRESPONDING (" (string-join columns ",") ") ")])))
+
+;; ----------------------------------------
 
 (define (emit-scalar-expr e)
   (match e
