@@ -8,6 +8,17 @@
          racket/format)
 (provide (all-defined-out))
 
+;; TODO:
+;; - keep original syntax around for (static) error checking
+;; - support more syntax
+;;   - INSERT, UPDATE, DELETE, ...
+;;   - table/view definition (for creation, for validation)
+;; - check types (assumes schema?)
+;; - check range-vars used correctly
+;; - check aggregates used correctly
+;; - BTW, this shouldn't be called racquel; that name should be reserved
+;;   for something more high-level. This is just db/sql.
+
 ;; ============================================================
 ;; Abstract Nonterminals
 
