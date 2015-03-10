@@ -120,6 +120,13 @@ row-constructor =
 
 S-expr syntax
 
+select-expr =                           ;; clauses in any order, optional except #:values
+  (select #:from table-ref ...
+          #:values select-item ...
+          #:where conditional-expr ...
+          #:group-by column-ID ...
+          #:having conditional-expr ...)
+
 table-ref =
     table-ID
   | table-expr
@@ -162,13 +169,6 @@ set-op-opt =
   | #:corresponding auto
   | #:corresponding (column-uid ...)
 
-select-expr =                           ;; clauses in any order, optional except #:values
-  (select #:from table-ref ...
-          #:values select-item ...
-          #:where conditional-expr ...
-          #:group-by column-ID ...
-          #:having conditional-expr ...)
-
 row-constructor =
     (row scalar-expr ...)
   | (row-query table-expr)
@@ -182,4 +182,4 @@ row-constructor =
 *-ID =
     symbol                      ;; dot-separated
   | string                      ;; dot-separated
-  | (qid symbol/string ...+)    ;; dots interpreted literally (if possible)
+  | (q symbol/string ...+)      ;; dots interpreted literally (if possible)
