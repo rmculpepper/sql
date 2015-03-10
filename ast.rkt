@@ -11,12 +11,14 @@
 ;; ============================================================
 ;; Abstract Nonterminals
 
-;; table-ref
-;; table-expr
-;; scalar-expr
+(define-generics type
+  (emit-type type))
 
 (define-generics scalar-expr
-  (emit-scalar-expr scalar-expr))
+  (emit-scalar-expr scalar-expr)
+  #:defaults
+  ([(lambda (x) (or (string? x) (number? x) (symbol? x)))
+    (define (emit-scalar-expr e) (~s e))]))
 
 (define-generics table-expr
   (emit-table-expr table-expr))
@@ -27,179 +29,294 @@
   ([table-expr?
     (define (emit-table-ref tr) (~a "(" (emit-table-expr tr) ")"))]))
 
+;; Alternate names for stupid generics binding rules...
+(define (*emit-scalar-expr e) (emit-scalar-expr e))
+(define (*emit-table-expr e) (emit-table-expr e))
+(define (*emit-table-ref e) (emit-table-ref e))
+
 ;; ----------------------------------------
 
 (struct table-ref:id (id)
-        #:method gen:table-ref
+        #:transparent
+        #:methods gen:table-ref
         [(define (emit-table-ref t)
            (emit-id (table-ref:id-id t)))])
+
 (struct table-ref:as (e rangevar)
-        #:method gen:table-ref
+        #:transparent
+        #:methods gen:table-ref
         [(define (emit-table-ref t)
-           (defmatch (table-ref:as e rangevar) t)
-           (~a (emit-table-expr e) " AS " (emit-id rangevar)))])
-(struct table-expr:join0 (type t1 t2)
-        #:method gen:table-expr
+           (match t
+             [(table-ref:as (table-ref:id table-name) rangevar)
+              (~a (emit-id table-name) " AS " (emit-id rangevar))]
+             [(table-ref:as table-expr rangevar)
+              (~a "(" (*emit-table-expr table-expr) ") AS " (emit-id rangevar))]))])
+
+;; ----------------------------------------
+
+(struct table-expr:cross-join (t1 t2)
+        #:transparent
+        #:methods gen:table-expr
         [(define (emit-table-expr t)
-           (defmatch (table-expr:join0 type t1 t2) t)
-           (~a (emit-table-ref t1)
-               (case type
-                 [(cross) " CROSS JOIN "]
-                 [(union) " UNION JOIN "])
-               (emit-table-ref t2)))])
+           (defmatch (table-expr:cross-join t1 t2) t)
+           (~a (*emit-table-ref t1)
+               " CROSS JOIN "
+               (*emit-table-ref t2)))])
+
 (struct table-expr:join (type t1 t2 on)
-        #:method gen:table-expr
+        #:transparent
+        #:methods gen:table-expr
         [(define (emit-table-expr t)
            (defmatch (table-expr:join type t1 t2 on) t)
            (~a "("
-               (emit-table-ref t1)
-               (case on
-                 [(natural) " NATURAL"]
-                 [else ""])
+               (*emit-table-ref t1)
+               (match on
+                 [`(natural) " NATURAL"]
+                 [_""])
                (case type
-                 [(inner) " INNER JOIN "]
-                 [(left)  " LEFT OUTER JOIN "]
-                 [(right) " RIGHT OUTER JOIN "]
-                 [(full)  " FULL OUTER JOIN "])
-               (emit-table-ref t2)
-               (cond [(list? on)
-                      (~a " USING (" (string-join (map emit-id on) ",") ")")]
-                     [(scalar-expr? on)
-                      (~a " ON " (emit-scalar-expr on))]
-                     [else ""])
+                 [(inner-join) " INNER JOIN "]
+                 [(left-join)  " LEFT OUTER JOIN "]
+                 [(right-join) " RIGHT OUTER JOIN "]
+                 [(full-join)  " FULL OUTER JOIN "]
+                 [(union-join) " UNION JOIN "])
+               (*emit-table-ref t2)
+               (match on
+                 [`(using ,columns)
+                  (~a " USING (" (string-join (map emit-id columns) ",") ")")]
+                 [`(on ,condition)
+                  (~a " ON " (*emit-scalar-expr condition))]
+                 [_ ""])
                ")"))])
-(struct table-expr:set-op (type t1 t2 opt)
-        #:method gen:table-expr
+
+(struct table-expr:set-op (type t1 t2 opt corr)
+        #:transparent
+        #:methods gen:table-expr
         [(define (emit-table-expr t)
-           (defmatch (table-expr:set-op type t1 t2 opt) t)
+           (defmatch (table-expr:set-op type t1 t2 opt corr) t)
            (~a "("
-               (emit-table-ref t1)
+               (*emit-table-ref t1)
                (case type
                  [(union) " UNION "]
                  [(except) " EXCEPT "]
                  [(intersect) " INTERSECT "])
-               (case on
+               (case opt
                  [(all) "ALL "]
                  [else ""])
-               (emit-table-ref t2)
+               (match corr
+                 [`#f ""]
+                 [`#t "CORRESPONDING "]
+                 [(list columns ...)
+                  (~a "CORRESPONDING (" (string-join columns ",") ") ")])
+               (*emit-table-ref t2)
                ")"))])
+
+#;
 (struct table-expr:select (select)
-        #:method gen:table-expr
+        #:transparent
+        #:methods gen:table-expr
         [(define (emit-table-expr t)
            (~a "(" (emit-select-stmt (table-expr:select-select t)) ")"))])
+
 (struct table-expr:values (rows)
-        #:method gen:table-expr
+        #:transparent
+        #:methods gen:table-expr
         [(define (emit-table-expr t)
            (~a "VALUES "
                (string-join
-                (for/list ([row rows])
+                (for/list ([row (table-expr:values-rows t)])
                   (~a "(" (string-join (map emit-scalar-expr row) ",") ")"))
                 ",")))])
 
+;; ----------------------------------------
+
+(define (emit-id id) (~a id))
+
+;; ----------------------------------------
+;; Scalar Expressions
+
+;; Treat types as scalar expressions too...
+
+;; An Op is (op Arity Formatter)
+;; where Arity     = Nat | (Nat) -- latter indicates arity at least
+;;       Formatter = Value ... -> String
+(struct op (arity formatter) #:transparent)
+
+(define (arity-includes? a n)
+  (cond [(pair? a) (> n (car a))]
+        [else (= n a)]))
+
+(struct scalar:app (op args)
+        #:transparent
+        #:methods gen:scalar-expr
+        [(define (emit-scalar-expr se)
+           (defmatch (scalar:app (op _ formatter) args) se)
+           (apply formatter args))])
+
+(define ((infix-op separator) . args)
+  (~a "(" (string-join (map emit-scalar-expr args) separator) ")"))
+
+(define (infix-op-entry sym [op-string (~a sym)])
+  (list sym (op '(1) (infix-op op-string))))
+
+(define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
+  (~a op-string "(" (string-join (map emit-scalar-expr args) arg-sep) ")"))
+
+(define standard-ops
+  `([cast ,(op 2 (fun-op "cast" #:arg-sep " as "))]
+    [coalesce ,(op '(0) (fun-op "coalesce"))]
+    [type ,(op 1 (lambda (e) (if (string? e) e (emit-scalar-expr e))))]
+    ,(infix-op-entry '+)
+    ,(infix-op-entry '-)
+    ,(infix-op-entry '*)
+    ,(infix-op-entry '/)
+    ,(infix-op-entry 'string-append "||")
+    ,(infix-op-entry 'string+ "||")
+    ,(infix-op-entry '=)
+    ,(infix-op-entry '<>)
+    ,(infix-op-entry '<)
+    ,(infix-op-entry '<=)
+    ,(infix-op-entry '>)
+    ,(infix-op-entry '>=)))
 
 
 ;; ============================================================
-;; OLD STUFF
+;; Parsing
 
+(require syntax/parse
+         (only-in syntax/parse [attribute $]))
 
+(define-syntax-class TableRef
+  #:attributes (ast)
+  #:datum-literals (as)
+  (pattern table-name:Ident
+           #:attr ast (table-ref:id ($ table-name.sym)))
+  (pattern (as table-name:Ident range-var:Ident)
+           #:attr ast (table-ref:as (table-ref:id ($ table-name.sym))
+                                    ($ range-var.sym)))
+  (pattern (as t:TableExpr range-var:Ident)
+           #:attr ast (table-ref:as ($ t.ast) ($ range-var.sym)))
+  (pattern :TableExpr))
 
-;; A UID (unqualified identifier) is one of
-;;  - string                            ;; dots interpreted literally (if possible)
-;;  - symbol                            ;; same
+(define-syntax-class TableExpr
+  #:attributes (ast)
+  #:datum-literals (cross-join values values*)
+  (pattern (cross-join t1:TableRef t2:TableRef)
+           #:attr ast (table-expr:cross-join ($ t1.ast) ($ t2.ast)))
+  (pattern (j:Join t1:TableRef t2:TableRef :join-on-clause)
+           #:attr ast (table-expr:join (syntax-e #'j) ($ t1.ast) ($ t2.ast) ($ on)))
+  (pattern (so:SetOp t1:expr t2:expr :maybe-all :set-op-clause)
+           #:attr ast (table-expr:set-op (syntax-e #'so)
+                                         (parse-table-expr #'t1)
+                                         (parse-table-expr #'t2)
+                                         (attribute all?)
+                                         (attribute corr)))
+  (pattern (values e:expr ...)
+           #:attr ast (table-expr:values
+                       (list (map parse-scalar-expr (syntax->list #'(e ...))))))
+  (pattern (values* [e:expr ...] ...)
+           #:attr ast (table-expr:values
+                       (for/list ([es (syntax->list #'((e ...) ...))])
+                         (for/list ([e (syntax->list es)])
+                           (parse-scalar-expr e)))))
+  )
 
-;; An ID is one of
-;;  - string                            ;; dot-separated
-;;  - symbol                            ;; dot-separated
-;;  - (qid (listof (U UID)))  
-(struct qid (parts) #:prefab)
+(define-syntax-class Join
+  (pattern (~datum inner-join))
+  (pattern (~datum left-join))
+  (pattern (~datum right-join))
+  (pattern (~datum full-join)))
+(define-syntax-class SetOp
+  (pattern (~datum union))
+  (pattern (~datum intersect))
+  (pattern (~datum except)))
 
-;; qid* : UID ... -> ID
-(define (qid* . parts)
-  (qid parts))
+(define-splicing-syntax-class set-op-clause
+  (pattern (~seq #:corresponding)
+           #:attr corr 'auto)
+  (pattern (~seq #:corresponding-by (column:id ...))
+           #:attr corr (syntax->datum #'(column ...)))
+  (pattern (~seq)
+           #:attr corr #f))
 
-;; symbol/string->qid : (U symbol string) -> qid
-(define (symbol/string->qid s)
-  (let ([s (if (symbol? s) (symbol->string s) s)])
-    (qid (string-split s "." #:trim? #f))))
+(define-splicing-syntax-class maybe-all
+  (pattern (~seq #:all) #:attr all? #t)
+  (pattern (~seq #:all) #:attr all? #f))
+
+(define-splicing-syntax-class join-on-clause
+  (pattern (~seq #:natural)
+           #:attr on '(natural))
+  (pattern (~seq #:using (column:id ...))
+           #:attr on `(using ,(syntax->datum #'(column ...))))
+  (pattern (~seq #:on condition:expr)
+           #:attr on `(on ,(parse-scalar-expr #'condition))))
+
+;; ----------------------------------------
+#|
+
+(define-syntax-class symbol-select-expr
+  #:datum-literals (select)
+  (pattern (~and (select . _) :inner-select-expr)))
+
+(define-syntax-class inner-select-expr
+  (pattern (_ (~or (~once sel:select-values-clause)
+                   (~optional from:select-from-clause)
+                   (~optional where:select-where-clause))
+              ...)))
+
+(define-splicing-syntax-class select-values-clause
+  #:attributes ([ast 1])
+  (pattern (~seq #:values :select-item ...)))
+
+(define-syntax-class select-item
+  #:attributes (ast)
+  #:datum-literals (as)
+  (pattern (as expr:ScalarExpr column:Ident)
+           #:attr ast (select-item:as ($ expr.ast) ($ column.sym)))
+  (pattern expr:ScalarExpr
+           #:attr ast ($ expr.ast)))
+
+(define-splicing-syntax-class select-from-clause
+  #:attributes ([ast 1])
+  (pattern (~seq #:from :table-ref-stx ...)))
+
+(define-splicing-syntax-class select-where-clause
+  #:attributes ([ast 1])
+  (pattern (~seq #:where :ScalarExpr ...)))
+|#
 
 ;; ----------------------------------------
 
-;; A TableRef is one of
-;;  - table-ID
-;;  - TableExpr
-;;  - (table:as (U table-ID TableExpr) range-UID (U #f (listof column-UID)))
-(struct table:as (texpr range-var columns) #:prefab)
+(define-syntax-class ScalarExpr
+  #:attributes (ast)
+  (pattern n:exact-integer
+           #:attr ast (syntax-e #'n))
+  (pattern s:str
+           #:attr ast (syntax-e #'s))
+  (pattern var:id
+           #:attr ast (syntax-e #'var))
+  (pattern (o:Op arg:ScalarExpr ...)
+           #:fail-unless (arity-includes? (op-arity (attribute o.op))
+                                          (length (syntax->list #'(arg ...))))
+                         "wrong arity"
+           #:attr ast (scalar:app (attribute o.op) (attribute arg.ast))))
 
-;; A TableExpr is one of
-;;  - JoinTableExpr
-;;  - (table:set-expr SetOp TableExpr TableExpr boolean SetSpec)
-;;  - SelectExpr
-;;  - (table:TABLE table-ID)
-;;  - (table:VALUES (listof RowConstructor))
-(struct table:set-expr (setop t1 t2 all? opt) #:prefab)
-(struct table:TABLE (tid) #:prefab)
-(struct table:VALUES (rows) #:prefab)
+(define-syntax-class Op
+  #:attributes (op)
+  (pattern o:Ident
+           #:attr op (cond [(assq ($ o.sym) standard-ops) => cadr] [else #f])
+           #:when ($ op)))
 
-;; A SetSpec is one of
-;;  - #f
-;;  - 'corresponding-auto
-;;  - (setspec:corresponding (listof column-???ID))
-(struct setspec:corresponding (columns) #:prefab)
+;; ----------------------------------------
 
-;; A JoinTableExpr is one of
-;;  - (table:join JoinType TableExpr TableExpr JoinOnSpec)
-(struct table:join (type t1 t2 spec) #:prefab)
+(define-syntax-class Ident
+  #:attributes (sym)
+  (pattern x:id #:attr sym (syntax-e #'x)))
 
-;; A JoinType is one of 'inner | 'left | 'right | 'full | 'cross | 'union
-;; A JoinOnSpec is one of
-;;  - #f                                ;; iff JoinType is 'cross or 'union
-;;  - 'natural
-;;  - (join:on cond-ScalarExpr)
-;;  - (join:using (listof column-UID))
-(struct join:on (condition) #:prefab)
-(struct join:using (columns) #:prefab)
+;; ----------------------------------------
 
-;; A SelectExpr is
-;;  (table:select (listof TableRef) (listof SelectItem) (listof ScalarExpr)
-;;                (U #f (listof column-ID)) (listof ScalarExp))
-(struct table:select (values from where group-by having) #:prefab)
-
-;; A RowConstructor is one of
-;;  - (row:tuple (listof ScalarExpr))
-;;  - (row:query1 TableExpr)
-(struct row:tuple (exprs) #:prefab)
-(struct row:query1 (texpr) #:prefab)
-
-;; ============================================================
-
-;; A ScalarExpr is one of
-;;  - (se:literal Any ScalarType)
-;;  - (se:app Operator (listof Argument))
-;;  -
-
-
-(struct se:literal (value type) #:prefab)
-(struct se:app (op args) #:prefab)
-
-
-;; An Operator is
-;;  (operator String Formatter (listof Kind) Kind)
-(struct operator (name formatter arg-kinds result-type))
-
-;; A Kind is one of
-;;  - ScalarType
-;;  - 'any-scalar
-;;  - 'type
-;;  - 'row
-;;  - 'table
-;;  - ???
-
-;; An Argument is one of
-;;  - ScalarExpr
-;;  - (arg:type ScalarType)
-;;  - (arg:special String)
-(struct arg:type (type) #:prefab)
-(struct arg:special (sql) #:prefab)
-
-;; eg "CAST(x as TEXT)" <-> (se:app CAST-op (list (se:varref 'x) (se:type "TEXT")))
-
+(define (parse-table-ref stx)
+  (syntax-parse stx [x:TableRef ($ x.ast)]))
+(define (parse-table-expr stx)
+  (syntax-parse stx [x:TableExpr ($ x.ast)]))
+(define (parse-scalar-expr stx)
+  (syntax-parse stx [x:ScalarExpr ($ x.ast)]))
