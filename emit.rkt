@@ -73,10 +73,14 @@
 (define (emit-scalar-expr e)
   (match e
     [(scalar:app (op _ formatter) args)
-     (apply formatter args)]
+     (apply formatter (map emit-scalar-expr args))]
     [(? symbol?)
      (~s e)]
     [(? string?)
      (~s e)]
     [(? exact-integer?)
      (~s e)]))
+
+;; ----------------------------------------
+
+(define (emit-id id) (~a id))

@@ -32,15 +32,17 @@
 (struct table-expr:select (select) #:transparent)
 
 (define (table-expr? x)
+  (or (join-table-expr? x)
+      (nonjoin-table-expr? x)))
+
+;; Indicates whether a join is the primary connective.
+(define (join-table-expr? x)
   (or (table-expr:cross-join? x)
-      (table-expr:join? x)
-      (table-expr:set-op? x)
+      (table-expr:join? x)))
+(define (nonjoin-table-expr? x)
+  (or (table-expr:set-op? x)
       (table-expr:values? x)
       (table-expr:select? x)))
-
-;; ----------------------------------------
-
-(define (emit-id id) (~a id))
 
 ;; ----------------------------------------
 ;; Scalar Expressions
@@ -58,18 +60,17 @@
         [else (= n a)]))
 
 (define ((infix-op separator) . args)
-  (~a "(" (string-join (map emit-scalar-expr args) separator) ")"))
+  (~a "(" (string-join args separator) ")"))
 
 (define (infix-op-entry sym [op-string (~a sym)])
   (list sym (op '(1) (infix-op op-string))))
 
 (define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
-  (~a op-string "(" (string-join (map emit-scalar-expr args) arg-sep) ")"))
+  (~a op-string "(" (string-join args arg-sep) ")"))
 
 (define standard-ops
   `([cast ,(op 2 (fun-op "cast" #:arg-sep " as "))]
     [coalesce ,(op '(0) (fun-op "coalesce"))]
-    [type ,(op 1 (lambda (e) (if (string? e) e (emit-scalar-expr e))))]
     ,(infix-op-entry '+)
     ,(infix-op-entry '-)
     ,(infix-op-entry '*)
