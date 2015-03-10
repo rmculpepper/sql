@@ -22,17 +22,6 @@
 (struct table-ref:id (id) #:transparent)
 (struct table-ref:as (e rangevar) #:transparent)
 
-(define (emit-table-ref t)
-  (match t
-    [(table-ref:id table-name)
-     (emit-id table-name)]
-    [(table-ref:as (table-ref:id table-name) rangevar)
-     (~a (emit-id table-name) " AS " (emit-id rangevar))]
-    [(table-ref:as table-expr rangevar)
-     (~a "(" (emit-table-expr table-expr) ") AS " (emit-id rangevar))]
-    [(? table-expr?)
-     (~a "(" (emit-table-expr t) ")")]))
-
 ;; ----------------------------------------
 ;; Table Expressions
 
@@ -48,58 +37,6 @@
       (table-expr:set-op? x)
       (table-expr:values? x)
       (table-expr:select? x)))
-
-(define (emit-table-expr t)
-  (match t
-    [(table-expr:cross-join t1 t2)
-     (~a (emit-table-ref t1)
-         " CROSS JOIN "
-         (emit-table-ref t2))]
-    [(table-expr:join type t1 t2 on)
-     (~a "("
-         (emit-table-ref t1)
-         (match on
-           [`(natural) " NATURAL"]
-           [_""])
-         (case type
-           [(inner-join) " INNER JOIN "]
-           [(left-join)  " LEFT OUTER JOIN "]
-           [(right-join) " RIGHT OUTER JOIN "]
-           [(full-join)  " FULL OUTER JOIN "]
-           [(union-join) " UNION JOIN "])
-         (emit-table-ref t2)
-         (match on
-           [`(using ,columns)
-            (~a " USING (" (string-join (map emit-id columns) ",") ")")]
-           [`(on ,condition)
-            (~a " ON " (emit-scalar-expr condition))]
-           [_ ""])
-         ")")]
-    [(table-expr:set-op type t1 t2 opt corr)
-     (~a "("
-         (emit-table-ref t1)
-         (case type
-           [(union) " UNION "]
-           [(except) " EXCEPT "]
-           [(intersect) " INTERSECT "])
-         (case opt
-           [(all) "ALL "]
-           [else ""])
-         (match corr
-           [`#f ""]
-           [`#t "CORRESPONDING "]
-           [(list columns ...)
-            (~a "CORRESPONDING (" (string-join columns ",") ") ")])
-         (emit-table-ref t2)
-         ")")]
-    [(table-expr:values rows)
-     (~a "VALUES "
-         (string-join
-          (for/list ([row rows])
-            (~a "(" (string-join (map emit-scalar-expr row) ",") ")"))
-          ","))]
-    [(table-expr:select select)
-     (error 'unimplemented)]))
 
 ;; ----------------------------------------
 
@@ -119,17 +56,6 @@
 (define (arity-includes? a n)
   (cond [(pair? a) (> n (car a))]
         [else (= n a)]))
-
-(define (emit-scalar-expr e)
-  (match e
-    [(scalar:app (op _ formatter) args)
-     (apply formatter args)]
-    [(? symbol?)
-     (~s e)]
-    [(? string?)
-     (~s e)]
-    [(? exact-integer?)
-     (~s e)]))
 
 (define ((infix-op separator) . args)
   (~a "(" (string-join (map emit-scalar-expr args) separator) ")"))
