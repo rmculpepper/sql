@@ -11,121 +11,95 @@
 ;; ============================================================
 ;; Abstract Nonterminals
 
-(define-generics type
-  (emit-type type))
+;; ----------------------------------------
+;; Table References
 
-(define-generics scalar-expr
-  (emit-scalar-expr scalar-expr)
-  #:defaults
-  ([(lambda (x) (or (string? x) (number? x) (symbol? x)))
-    (define (emit-scalar-expr e) (~s e))]))
+;; A TableRef is one of
+;; - (table-ref:id Symbol)
+;; - (table-ref:as TableExpr Symbol)
+;; - TableExpr
 
-(define-generics table-expr
-  (emit-table-expr table-expr))
+(struct table-ref:id (id) #:transparent)
+(struct table-ref:as (e rangevar) #:transparent)
 
-(define-generics table-ref
-  (emit-table-ref table-ref)
-  #:defaults
-  ([table-expr?
-    (define (emit-table-ref tr) (~a "(" (emit-table-expr tr) ")"))]))
-
-;; Alternate names for stupid generics binding rules...
-(define (*emit-scalar-expr e) (emit-scalar-expr e))
-(define (*emit-table-expr e) (emit-table-expr e))
-(define (*emit-table-ref e) (emit-table-ref e))
+(define (emit-table-ref t)
+  (match t
+    [(table-ref:id table-name)
+     (emit-id table-name)]
+    [(table-ref:as (table-ref:id table-name) rangevar)
+     (~a (emit-id table-name) " AS " (emit-id rangevar))]
+    [(table-ref:as table-expr rangevar)
+     (~a "(" (emit-table-expr table-expr) ") AS " (emit-id rangevar))]
+    [(? table-expr?)
+     (~a "(" (emit-table-expr t) ")")]))
 
 ;; ----------------------------------------
+;; Table Expressions
 
-(struct table-ref:id (id)
-        #:transparent
-        #:methods gen:table-ref
-        [(define (emit-table-ref t)
-           (emit-id (table-ref:id-id t)))])
+(struct table-expr:cross-join (t1 t2) #:transparent)
+(struct table-expr:join (type t1 t2 on) #:transparent)
+(struct table-expr:set-op (type t1 t2 opt corr) #:transparent)
+(struct table-expr:values (rows) #:transparent)
+(struct table-expr:select (select) #:transparent)
 
-(struct table-ref:as (e rangevar)
-        #:transparent
-        #:methods gen:table-ref
-        [(define (emit-table-ref t)
-           (match t
-             [(table-ref:as (table-ref:id table-name) rangevar)
-              (~a (emit-id table-name) " AS " (emit-id rangevar))]
-             [(table-ref:as table-expr rangevar)
-              (~a "(" (*emit-table-expr table-expr) ") AS " (emit-id rangevar))]))])
+(define (table-expr? x)
+  (or (table-expr:cross-join? x)
+      (table-expr:join? x)
+      (table-expr:set-op? x)
+      (table-expr:values? x)
+      (table-expr:select? x)))
 
-;; ----------------------------------------
-
-(struct table-expr:cross-join (t1 t2)
-        #:transparent
-        #:methods gen:table-expr
-        [(define (emit-table-expr t)
-           (defmatch (table-expr:cross-join t1 t2) t)
-           (~a (*emit-table-ref t1)
-               " CROSS JOIN "
-               (*emit-table-ref t2)))])
-
-(struct table-expr:join (type t1 t2 on)
-        #:transparent
-        #:methods gen:table-expr
-        [(define (emit-table-expr t)
-           (defmatch (table-expr:join type t1 t2 on) t)
-           (~a "("
-               (*emit-table-ref t1)
-               (match on
-                 [`(natural) " NATURAL"]
-                 [_""])
-               (case type
-                 [(inner-join) " INNER JOIN "]
-                 [(left-join)  " LEFT OUTER JOIN "]
-                 [(right-join) " RIGHT OUTER JOIN "]
-                 [(full-join)  " FULL OUTER JOIN "]
-                 [(union-join) " UNION JOIN "])
-               (*emit-table-ref t2)
-               (match on
-                 [`(using ,columns)
-                  (~a " USING (" (string-join (map emit-id columns) ",") ")")]
-                 [`(on ,condition)
-                  (~a " ON " (*emit-scalar-expr condition))]
-                 [_ ""])
-               ")"))])
-
-(struct table-expr:set-op (type t1 t2 opt corr)
-        #:transparent
-        #:methods gen:table-expr
-        [(define (emit-table-expr t)
-           (defmatch (table-expr:set-op type t1 t2 opt corr) t)
-           (~a "("
-               (*emit-table-ref t1)
-               (case type
-                 [(union) " UNION "]
-                 [(except) " EXCEPT "]
-                 [(intersect) " INTERSECT "])
-               (case opt
-                 [(all) "ALL "]
-                 [else ""])
-               (match corr
-                 [`#f ""]
-                 [`#t "CORRESPONDING "]
-                 [(list columns ...)
-                  (~a "CORRESPONDING (" (string-join columns ",") ") ")])
-               (*emit-table-ref t2)
-               ")"))])
-
-#;
-(struct table-expr:select (select)
-        #:transparent
-        #:methods gen:table-expr
-        [(define (emit-table-expr t)
-           (~a "(" (emit-select-stmt (table-expr:select-select t)) ")"))])
-
-(struct table-expr:values (rows)
-        #:transparent
-        #:methods gen:table-expr
-        [(define (emit-table-expr t)
-           (~a "VALUES "
-               (string-join
-                (for/list ([row (table-expr:values-rows t)])
-                  (~a "(" (string-join (map emit-scalar-expr row) ",") ")"))
-                ",")))])
+(define (emit-table-expr t)
+  (match t
+    [(table-expr:cross-join t1 t2)
+     (~a (emit-table-ref t1)
+         " CROSS JOIN "
+         (emit-table-ref t2))]
+    [(table-expr:join type t1 t2 on)
+     (~a "("
+         (emit-table-ref t1)
+         (match on
+           [`(natural) " NATURAL"]
+           [_""])
+         (case type
+           [(inner-join) " INNER JOIN "]
+           [(left-join)  " LEFT OUTER JOIN "]
+           [(right-join) " RIGHT OUTER JOIN "]
+           [(full-join)  " FULL OUTER JOIN "]
+           [(union-join) " UNION JOIN "])
+         (emit-table-ref t2)
+         (match on
+           [`(using ,columns)
+            (~a " USING (" (string-join (map emit-id columns) ",") ")")]
+           [`(on ,condition)
+            (~a " ON " (emit-scalar-expr condition))]
+           [_ ""])
+         ")")]
+    [(table-expr:set-op type t1 t2 opt corr)
+     (~a "("
+         (emit-table-ref t1)
+         (case type
+           [(union) " UNION "]
+           [(except) " EXCEPT "]
+           [(intersect) " INTERSECT "])
+         (case opt
+           [(all) "ALL "]
+           [else ""])
+         (match corr
+           [`#f ""]
+           [`#t "CORRESPONDING "]
+           [(list columns ...)
+            (~a "CORRESPONDING (" (string-join columns ",") ") ")])
+         (emit-table-ref t2)
+         ")")]
+    [(table-expr:values rows)
+     (~a "VALUES "
+         (string-join
+          (for/list ([row rows])
+            (~a "(" (string-join (map emit-scalar-expr row) ",") ")"))
+          ","))]
+    [(table-expr:select select)
+     (error 'unimplemented)]))
 
 ;; ----------------------------------------
 
@@ -135,6 +109,7 @@
 ;; Scalar Expressions
 
 ;; Treat types as scalar expressions too...
+(struct scalar:app (op args) #:transparent)
 
 ;; An Op is (op Arity Formatter)
 ;; where Arity     = Nat | (Nat) -- latter indicates arity at least
@@ -145,12 +120,16 @@
   (cond [(pair? a) (> n (car a))]
         [else (= n a)]))
 
-(struct scalar:app (op args)
-        #:transparent
-        #:methods gen:scalar-expr
-        [(define (emit-scalar-expr se)
-           (defmatch (scalar:app (op _ formatter) args) se)
-           (apply formatter args))])
+(define (emit-scalar-expr e)
+  (match e
+    [(scalar:app (op _ formatter) args)
+     (apply formatter args)]
+    [(? symbol?)
+     (~s e)]
+    [(? string?)
+     (~s e)]
+    [(? exact-integer?)
+     (~s e)]))
 
 (define ((infix-op separator) . args)
   (~a "(" (string-join (map emit-scalar-expr args) separator) ")"))
@@ -177,7 +156,6 @@
     ,(infix-op-entry '<=)
     ,(infix-op-entry '>)
     ,(infix-op-entry '>=)))
-
 
 ;; ============================================================
 ;; Parsing
@@ -247,8 +225,8 @@
            #:attr on '(natural))
   (pattern (~seq #:using (column:id ...))
            #:attr on `(using ,(syntax->datum #'(column ...))))
-  (pattern (~seq #:on condition:expr)
-           #:attr on `(on ,(parse-scalar-expr #'condition))))
+  (pattern (~seq #:on condition:ScalarExpr)
+           #:attr on `(on ,($ condition.ast))))
 
 ;; ----------------------------------------
 #|
