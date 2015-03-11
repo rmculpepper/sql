@@ -30,17 +30,39 @@
 
 (define-syntax-class SelectInner
   #:attributes (ast)
-  (pattern (_ (~or (~once sel:SelectValuesClause)
+  (pattern (_ vs:SelectValues
+              (~or (~optional sel:SelectValuesClause)
                    (~optional from:SelectFromClause)
-                   (~optional where:SelectWhereClause))
+                   (~optional where:SelectWhereClause)
+                   (~optional groupby:SelectGroupByClause)
+                   (~optional having:SelectHavingClause)
+                   (~optional order:SelectOrderClause)
+                   (~optional limit:SelectLimitClause)
+                   (~optional offset:SelectOffsetClause))
               ...)
-           #:attr ast (stmt:select ($ sel.ast)
+           #:fail-when (and (pair? ($ vs.ast)) ($ sel.kw))
+                       "#:values clause not allowed with initial value list"
+           #:fail-when (and (pair? ($ having.ast))
+                            (not (pair? ($ groupby.columns))))
+                       "#:having clause with empty #:group-by"
+           #:attr ast (stmt:select (append ($ vs.ast) (or ($ sel.ast) null))
                                    (or ($ from.ast) null)
-                                   (or ($ where.ast) null))))
+                                   (or ($ where.ast) null)
+                                   (or ($ groupby.columns) null)
+                                   (or ($ having.ast) null)
+                                   (and (or ($ order.ast) ($ limit.ast) ($ offset.ast))
+                                        (select:extension
+                                         (or ($ order.ast) null)
+                                         ($ limit.ast)
+                                         ($ offset.ast))))))
+
+(define-splicing-syntax-class SelectValues
+  #:attributes ([ast 1])
+  (pattern (~seq :SelectItem ...)))
 
 (define-splicing-syntax-class SelectValuesClause
-  #:attributes ([ast 1])
-  (pattern (~seq #:values :SelectItem ...)))
+  #:attributes ([ast 1] kw)
+  (pattern (~seq (~and #:values kw) :SelectValues)))
 
 (define-syntax-class SelectItem
   #:attributes (ast)
@@ -57,6 +79,36 @@
 (define-splicing-syntax-class SelectWhereClause
   #:attributes ([ast 1])
   (pattern (~seq #:where :ScalarExpr ...)))
+
+(define-splicing-syntax-class SelectGroupByClause
+  #:attributes (columns)
+  (pattern (~seq #:group-by c:Ident ...)
+           #:attr columns ($ c.sym)))
+
+(define-splicing-syntax-class SelectHavingClause
+  #:attributes ([ast 1])
+  (pattern (~seq #:having :ScalarExpr ...)))
+
+(define-splicing-syntax-class SelectOrderClause
+  #:attributes ([ast 1])
+  (pattern (~seq #:order-by :SelectOrderItem ...)))
+(define-splicing-syntax-class SelectOrderItem
+  #:attributes (ast)
+  (pattern (~seq e:ScalarExpr o:SelectOrderDirection)
+           #:attr ast (select:order ($ e.ast) ($ o.dir))))
+(define-splicing-syntax-class SelectOrderDirection
+  #:attributes (dir)
+  (pattern (~seq #:asc) #:attr dir 'asc)
+  (pattern (~seq #:desc) #:attr dir 'desc)
+  (pattern (~seq) #:attr dir #f))
+
+(define-splicing-syntax-class SelectLimitClause
+  #:attributes (ast)
+  (pattern (~seq #:limit :ScalarExpr)))
+
+(define-splicing-syntax-class SelectOffsetClause
+  #:attributes (ast)
+  (pattern (~seq #:offset :ScalarExpr)))
 
 
 ;; ============================================================

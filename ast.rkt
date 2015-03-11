@@ -25,14 +25,27 @@
 ;; ----------------------------------------
 ;; Select
 
-;; A Select is
-;; (stmt:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr))
-(struct stmt:select (values from where) #:transparent)
+;; A Select is 
+;; (stmt:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr)
+;;              (Listof Symbol) (Listof ScalarExpr) (U SelectExtension #f))
+(struct stmt:select (vals from where groupby having ext) #:transparent)
 
 ;; A SelectItem is one of
 ;; - (select-item:as ScalarExpr Symbol)
 ;; - ScalarExpr
 (struct select-item:as (expr name) #:transparent)
+
+;; A SelectExtension is
+;; (select:extension (Listof SelectOrder) (U ScalarExpr #f) (U ScalarExpr #f))
+(struct select:extension (order limit offset) #:transparent)
+
+;; A SelectOrder is (select:order Symbol (U 'asc 'desc #f))
+(struct select:order (column asc/desc) #:transparent)
+
+;; ----------------------------------------
+;; Insert
+
+;; An Insert is (stmt:insert 
 
 ;; ----------------------------------------
 ;; Table References

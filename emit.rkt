@@ -38,7 +38,7 @@
 
 (define (emit-select s)
   (match s
-    [(stmt:select vals froms wheres)
+    [(stmt:select vals froms wheres groupby having ext)
      (J "SELECT "
         (J-join (map emit-select-item vals) ", ")
         (if (pair? froms)
@@ -46,13 +46,40 @@
             "")
         (if (pair? wheres)
             (J " WHERE " (J-join (map emit-scalar-expr wheres) " AND "))
-            ""))]))
+            "")
+        (if (pair? groupby)
+            (J " GROUP BY " (J-join (map emit-id groupby) ", "))
+            "")
+        (if (pair? having)
+            (J " HAVING " (J-join (map emit-scalar-expr having) " AND "))
+            "")
+        (match ext
+          [(select:extension order limit offset)
+           (J (if order
+                  (J " ORDER BY " (J-join (map emit-select-order order) ", "))
+                  "")
+              (if limit
+                  (J " LIMIT " (emit-scalar-expr limit))
+                  "")
+              (if offset
+                  (J " OFFSET " (emit-scalar-expr offset))
+                  ""))]
+          [#f ""]))]))
 
 (define (emit-select-item si)
   (match si
     [(select-item:as expr var)
      (J (emit-scalar-expr expr) " AS " (emit-id var))]
     [_ (emit-scalar-expr si)]))
+
+(define (emit-select-order so)
+  (match so
+    [(select:order column asc/desc)
+     (J (emit-id column)
+        (case asc/desc
+          [(asc) " ASC"]
+          [(desc) " DESC"]
+          [(#f) ""]))]))
 
 ;; ----------------------------------------
 
