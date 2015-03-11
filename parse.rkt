@@ -95,7 +95,8 @@
                        (for/list ([es (syntax->list #'((e ...) ...))])
                          (for/list ([e (syntax->list es)])
                            (parse-scalar-expr e)))))
-  )
+  (pattern s:Select
+           #:attr ast (table-expr:select ($ s.ast))))
 
 (define-syntax-class Join
   (pattern (~datum inner-join))

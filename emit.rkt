@@ -121,7 +121,7 @@
      (J (emit-table-term t1)
         (emit-set-op-parts type opt corr)
         (emit-table-primary t2))]
-    [_ (emit-nonjoin-table-term t)]))
+    [_ (emit-nonjoin-table-primary t)]))
 
 (define (emit-table-primary t)
   (cond [(join-table-expr? t)
@@ -139,7 +139,7 @@
            (J "(" (J-join (map emit-scalar-expr row) ", ") ")"))
          ", "))]
     [(table-expr:select select)
-     (error 'unimplemented)]
+     (emit-select select)]
     [_ (J "(" (emit-table-expr t) ")")]))
 
 (define (emit-set-op-parts type opt corr)
