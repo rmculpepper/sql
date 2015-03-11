@@ -25,12 +25,34 @@
 ;; ============================================================
 ;; Emit according to concrete syntax for minimal parenthesization.
 
+(define (select->string s)
+  (jumble->string (emit-select s)))
 (define (table-ref->string t)
   (jumble->string (emit-table-ref t)))
 (define (table-expr->string t)
   (jumble->string (emit-table-expr t)))
 (define (scalar-expr->string e)
   (jumble->string (emit-scalar-expr e)))
+
+;; ----------------------------------------
+
+(define (emit-select s)
+  (match s
+    [(stmt:select vals froms wheres)
+     (J "SELECT "
+        (J-join (map emit-select-item vals) ", ")
+        (if (pair? froms)
+            (J " FROM " (J-join (map emit-table-ref froms) ", "))
+            "")
+        (if (pair? wheres)
+            (J " WHERE " (J-join (map emit-scalar-expr wheres) " AND "))
+            ""))]))
+
+(define (emit-select-item si)
+  (match si
+    [(select-item:as expr var)
+     (J (emit-scalar-expr expr) " AS " (emit-id var))]
+    [_ (emit-scalar-expr si)]))
 
 ;; ----------------------------------------
 
@@ -60,7 +82,7 @@
         (emit-table-ref t2)
         (match on
           [`(using ,columns)
-           (J " USING (" (J-join (map emit-id columns) ",") ")")]
+           (J " USING (" (J-join (map emit-id columns) ", ") ")")]
           [`(on ,condition)
            (J " ON " (emit-scalar-expr condition))]
           [_ ""]))]))
@@ -114,8 +136,8 @@
      (J "VALUES "
         (string-join
          (for/list ([row rows])
-           (J "(" (J-join (map emit-scalar-expr row) ",") ")"))
-         ","))]
+           (J "(" (J-join (map emit-scalar-expr row) ", ") ")"))
+         ", "))]
     [(table-expr:select select)
      (error 'unimplemented)]
     [_ (J "(" (emit-table-expr t) ")")]))
@@ -132,7 +154,7 @@
        [`#f ""]
        [`#t "CORRESPONDING "]
        [(list columns ...)
-        (~a "CORRESPONDING (" (string-join columns ",") ") ")])))
+        (~a "CORRESPONDING (" (string-join columns ", ") ") ")])))
 
 ;; ----------------------------------------
 
@@ -140,6 +162,10 @@
   (match e
     [(scalar:app (op _ formatter) args)
      (apply formatter (map emit-scalar-expr args))]
+    [(scalar:placeholder)
+     "?"]
+    [(scalar:literal s)
+     s]
     [(? symbol?)
      (~s e)]
     [(? string?)
