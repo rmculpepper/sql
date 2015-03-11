@@ -27,6 +27,8 @@
 
 (define (select->string s)
   (jumble->string (emit-select s)))
+(define (insert->string s)
+  (jumble->string (emit-insert s)))
 (define (table-ref->string t)
   (jumble->string (emit-table-ref t)))
 (define (table-expr->string t)
@@ -80,6 +82,18 @@
           [(asc) " ASC"]
           [(desc) " DESC"]
           [(#f) ""]))]))
+
+;; ----------------------------------------
+
+(define (emit-insert i)
+  (match i
+    [(stmt:insert table columns source)
+     (J "INSERT INTO "
+        (emit-id table)
+        (if columns
+            (J " (" (J-join (map emit-id columns) ", ") ") ")
+            " ")
+        (emit-table-expr source))]))
 
 ;; ----------------------------------------
 
@@ -161,7 +175,7 @@
     ;; [(table-expr:table ...) ...] ;; "TABLE table-name"
     [(table-expr:values rows)
      (J "VALUES "
-        (string-join
+        (J-join
          (for/list ([row rows])
            (J "(" (J-join (map emit-scalar-expr row) ", ") ")"))
          ", "))]
@@ -181,7 +195,7 @@
        [`#f ""]
        [`#t "CORRESPONDING "]
        [(list columns ...)
-        (~a "CORRESPONDING (" (string-join columns ", ") ") ")])))
+        (J "CORRESPONDING (" (J-join (map emit-id columns) ", ") ") ")])))
 
 ;; ----------------------------------------
 

@@ -45,7 +45,8 @@
 ;; ----------------------------------------
 ;; Insert
 
-;; An Insert is (stmt:insert 
+;; An Insert is (stmt:insert Symbol (U (Listof Symbol) #f) TableExpr)
+(struct stmt:insert (table columns source) #:transparent)
 
 ;; ----------------------------------------
 ;; Table References

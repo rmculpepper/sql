@@ -12,12 +12,40 @@
 
 (define (parse-select stx)
   (syntax-parse stx [x:Select ($ x.ast)]))
+(define (parse-insert stx)
+  (syntax-parse stx [x:InsertInner ($ x.ast)]))
 (define (parse-table-ref stx)
   (syntax-parse stx [x:TableRef ($ x.ast)]))
 (define (parse-table-expr stx)
   (syntax-parse stx [x:TableExpr ($ x.ast)]))
 (define (parse-scalar-expr stx)
   (syntax-parse stx [x:ScalarExpr ($ x.ast)]))
+
+
+;; ============================================================
+;; Insert Statements
+
+;; TODO: want to also support following syntax:
+;;   (insert table ([column expr] ...))
+
+(define-syntax-class InsertInner
+  #:attributes (ast)
+  (pattern (_ (~or (~once :InsertTarget)
+                   (~once src:InsertSource))
+              ...)
+           #:attr ast (stmt:insert ($ table) ($ columns) ($ src.ast))))
+
+(define-splicing-syntax-class InsertTarget
+  #:attributes (table columns)
+  (pattern (~seq #:into t:Ident (~optional (~seq (c:Ident ...))))
+           #:attr table ($ t.sym)
+           #:attr columns ($ c.sym)))
+
+(define-splicing-syntax-class InsertSource
+  #:attributes (ast)
+  (pattern (~seq #:values e:ScalarExpr ...)
+           #:attr ast (table-expr:values (list ($ e.ast))))
+  (pattern (~seq #:from :TableExpr)))
 
 
 ;; ============================================================
