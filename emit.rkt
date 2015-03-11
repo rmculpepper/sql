@@ -98,7 +98,7 @@
     [(? join-table-expr?)
      (emit-join-table-expr t)]
     [_
-     (eprintf "WARNING: may be illegal\n")
+     (eprintf "WARNING: may be illegal syntax\n")
      (J "(" (emit-table-expr t) ")")]))
 
 (define (emit-nonjoin-table-expr t)
