@@ -49,6 +49,15 @@
 (struct stmt:insert (table columns source) #:transparent)
 
 ;; ----------------------------------------
+;; Update
+
+;; An Update is (stmt:update Symbol (Listof UpdateAssign) (Listof ScalarExpr))
+(struct stmt:update (table assign where) #:transparent)
+
+;; An UpdateAssign is (update:assign Symbol ScalarExpr)
+(struct update:assign (column expr) #:transparent)
+
+;; ----------------------------------------
 ;; Table References
 
 ;; A TableRef is one of

@@ -97,6 +97,24 @@
 
 ;; ----------------------------------------
 
+(define (emit-update u)
+  (match u
+    [(stmt:update table assign where)
+     (J "UPDATE "
+        (emit-id table)
+        " SET "
+        (J-join (map emit-update-assign assign) ", ")
+        (if (pair? where)
+            (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
+            ""))]))
+
+(define (emit-update-assign a)
+  (match a
+    [(update:assign column expr)
+     (J (emit-id column) " = " (emit-scalar-expr expr))]))
+
+;; ----------------------------------------
+
 (define (emit-table-expr t)
   (cond [(join-table-expr? t)
          (emit-join-table-expr t)]

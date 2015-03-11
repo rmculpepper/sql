@@ -14,6 +14,9 @@
   (syntax-parse stx [x:Select ($ x.ast)]))
 (define (parse-insert stx)
   (syntax-parse stx [x:InsertInner ($ x.ast)]))
+(define (parse-update stx)
+  (syntax-parse stx [x:UpdateInner ($ x.ast)]))
+
 (define (parse-table-ref stx)
   (syntax-parse stx [x:TableRef ($ x.ast)]))
 (define (parse-table-expr stx)
@@ -21,6 +24,25 @@
 (define (parse-scalar-expr stx)
   (syntax-parse stx [x:ScalarExpr ($ x.ast)]))
 
+;; ============================================================
+;; Update Statements
+
+(define-syntax-class UpdateInner
+  #:attributes (ast)
+  (pattern (_ table:Ident
+              (~or (~once assign:UpdateAssignClause)
+                   (~optional where:SelectWhereClause))
+              ...)
+           #:attr ast (stmt:update ($ table.sym) ($ assign.ast) ($ where.ast))))
+
+(define-splicing-syntax-class UpdateAssignClause
+  #:attributes ([ast 1])
+  (pattern (~seq #:set :UpdateAssignment ...)))
+
+(define-syntax-class UpdateAssignment
+  #:attributes (ast)
+  (pattern [c:Ident e:ScalarExpr]
+           #:attr ast (update:assign ($ c.sym) ($ e.ast))))
 
 ;; ============================================================
 ;; Insert Statements
