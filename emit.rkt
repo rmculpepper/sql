@@ -25,16 +25,22 @@
 ;; ============================================================
 ;; Emit according to concrete syntax for minimal parenthesization.
 
-(define (select->string s)
-  (jumble->string (emit-select s)))
-(define (insert->string s)
-  (jumble->string (emit-insert s)))
+(define (statement->string s)
+  (jumble->string (emit-statement s)))
 (define (table-ref->string t)
   (jumble->string (emit-table-ref t)))
 (define (table-expr->string t)
   (jumble->string (emit-table-expr t)))
 (define (scalar-expr->string e)
   (jumble->string (emit-scalar-expr e)))
+
+;; ----------------------------------------
+
+(define (emit-statement s)
+  (cond [(stmt:select? s) (emit-select s)]
+        [(stmt:insert? s) (emit-insert s)]
+        [(stmt:update? s) (emit-update s)]
+        [(stmt:delete? s) (emit-delete s)]))
 
 ;; ----------------------------------------
 
@@ -112,6 +118,17 @@
   (match a
     [(update:assign column expr)
      (J (emit-id column) " = " (emit-scalar-expr expr))]))
+
+;; ----------------------------------------
+
+(define (emit-delete d)
+  (match d
+    [(stmt:delete table where)
+     (J "DELETE FROM "
+        (emit-id table)
+        (if (pair? where)
+            (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
+            ""))]))
 
 ;; ----------------------------------------
 

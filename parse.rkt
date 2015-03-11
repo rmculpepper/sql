@@ -10,12 +10,12 @@
 ;; ============================================================
 ;; Entry points
 
-(define (parse-select stx)
-  (syntax-parse stx [x:Select ($ x.ast)]))
-(define (parse-insert stx)
-  (syntax-parse stx [x:InsertInner ($ x.ast)]))
-(define (parse-update stx)
-  (syntax-parse stx [x:UpdateInner ($ x.ast)]))
+(define (parse-statement stx)
+  (syntax-parse stx
+    [x:Select ($ x.ast)]
+    [x:Insert ($ x.ast)]
+    [x:Update ($ x.ast)]
+    [x:Delete ($ x.ast)]))
 
 (define (parse-table-ref stx)
   (syntax-parse stx [x:TableRef ($ x.ast)]))
@@ -25,7 +25,41 @@
   (syntax-parse stx [x:ScalarExpr ($ x.ast)]))
 
 ;; ============================================================
-;; Update Statements
+;; Statements
+
+;; The following stxclasses recognize the statement type by symbol. In
+;; contrast, macro versions will use the Inner stxclasses directly.
+
+(define-syntax-class Select
+  #:attributes (ast)
+  (pattern (~and ((~datum select) . _) :SelectInner)))
+(define-syntax-class Insert
+  #:attributes (ast)
+  (pattern (~and ((~datum insert) . _) :InsertInner)))
+(define-syntax-class Update
+  #:attributes (ast)
+  (pattern (~and ((~datum update) . _) :UpdateInner)))
+(define-syntax-class Delete
+  #:attributes (ast)
+  (pattern (~and ((~datum delete) . _) :DeleteInner)))
+
+;; ============================================================
+;; Delete Statement
+
+(define-syntax-class DeleteInner
+  #:attributes (ast)
+  (pattern (_ (~or (~once :DeleteFromClause)
+                   (~optional where:SelectWhereClause))
+              ...)
+           #:attr ast (stmt:delete ($ table) (or ($ where.ast) null))))
+
+(define-splicing-syntax-class DeleteFromClause
+  #:attributes (table)
+  (pattern (~seq #:from t:Ident)
+           #:attr table ($ t.sym)))
+
+;; ============================================================
+;; Update Statement
 
 (define-syntax-class UpdateInner
   #:attributes (ast)
@@ -33,7 +67,8 @@
               (~or (~once assign:UpdateAssignClause)
                    (~optional where:SelectWhereClause))
               ...)
-           #:attr ast (stmt:update ($ table.sym) ($ assign.ast) ($ where.ast))))
+           #:attr ast (stmt:update ($ table.sym) ($ assign.ast)
+                                   (or ($ where.ast) null))))
 
 (define-splicing-syntax-class UpdateAssignClause
   #:attributes ([ast 1])
@@ -45,7 +80,7 @@
            #:attr ast (update:assign ($ c.sym) ($ e.ast))))
 
 ;; ============================================================
-;; Insert Statements
+;; Insert Statement
 
 ;; TODO: want to also support following syntax:
 ;;   (insert table ([column expr] ...))
@@ -71,12 +106,7 @@
 
 
 ;; ============================================================
-;; Select Statements
-
-(define-syntax-class Select
-  #:attributes (ast)
-  #:datum-literals (select)
-  (pattern (~and (select . _) :SelectInner)))
+;; Select Statement
 
 (define-syntax-class SelectInner
   #:attributes (ast)

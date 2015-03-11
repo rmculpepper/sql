@@ -9,9 +9,12 @@
 (provide (all-defined-out))
 
 ;; TODO:
+;; - identifier and string SQL safety
+;; - qualified identifiers
+;; - 2 types of escapes (unquote):
+;; - auto functions???
 ;; - keep original syntax around for (static) error checking
 ;; - support more syntax
-;;   - INSERT, UPDATE, DELETE, ...
 ;;   - table/view definition (for creation, for validation)
 ;; - check types (assumes schema?)
 ;; - check range-vars used correctly
@@ -56,6 +59,12 @@
 
 ;; An UpdateAssign is (update:assign Symbol ScalarExpr)
 (struct update:assign (column expr) #:transparent)
+
+;; ----------------------------------------
+;; Delete
+
+;; A Delete is (stmt:delete Symbol (Listof ScalarExpr))
+(struct stmt:delete (table where) #:transparent)
 
 ;; ----------------------------------------
 ;; Table References
