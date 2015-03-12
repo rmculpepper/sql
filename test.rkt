@@ -4,7 +4,7 @@
 (define (test stx)
   (define s (parse-statement stx))
   (pretty-print (syntax->datum stx))
-  ;; (pretty-print s)
+  (pretty-print s)
   (printf "~a\n\n" (statement->string s)))
 
 (define (err stx)
