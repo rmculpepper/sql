@@ -10,7 +10,13 @@
 (provide (all-defined-out))
 
 ;; TODO:
-;; - 2 types of escapes (unquote):
+;; - turn emit into class w/ overridable methods
+;; - macros, convert compile-time AST to run-time AST
+;;   - statements, also public NTs!
+;; - add INJECT form to main NTs: converts string to SQL
+;; - 2 types of escape (ie unquote)
+;;   - for ScalarExpr, turn into param (but need db-lib improvements)
+;;   - for other NTs, need to insert AST dynamically
 ;; - keep original syntax around for (static) error checking
 ;; - support more syntax
 ;;   - table/view definition (for creation, for validation)
