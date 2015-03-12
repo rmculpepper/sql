@@ -168,8 +168,3 @@
 ;; - Symbol               -- to be transmitted unquoted
 ;; - (id:literal String)  -- to be quoted when emitted
 (struct id:literal (s) #:transparent)
-
-;; TODO:
-;; - have predicate for unquoted ids?
-;; - have mode where Racket identifier parsed as lit-id?
-;; - ...?

@@ -292,6 +292,10 @@
 ;; ============================================================
 ;; Other
 
+;; TODO:
+;; - have mode where Racket identifier parsed as lit-id?
+;; - ...?
+
 ;; Notes on SQL identifier syntax:
 ;; - Date & Darwen pp33-35
 ;; - PostgreSQL: http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html
