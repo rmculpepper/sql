@@ -55,19 +55,19 @@
 
 (define-splicing-syntax-class DeleteFromClause
   #:attributes (table)
-  (pattern (~seq #:from t:Ident)
-           #:attr table ($ t.sym)))
+  (pattern (~seq #:from t:Name)
+           #:attr table ($ t.ast)))
 
 ;; ============================================================
 ;; Update Statement
 
 (define-syntax-class UpdateInner
   #:attributes (ast)
-  (pattern (_ table:Ident
+  (pattern (_ table:Name
               (~or (~once assign:UpdateAssignClause)
                    (~optional where:SelectWhereClause))
               ...)
-           #:attr ast (stmt:update ($ table.sym) ($ assign.ast)
+           #:attr ast (stmt:update ($ table.ast) ($ assign.ast)
                                    (or ($ where.ast) null))))
 
 (define-splicing-syntax-class UpdateAssignClause
@@ -77,7 +77,7 @@
 (define-syntax-class UpdateAssignment
   #:attributes (ast)
   (pattern [c:Ident e:ScalarExpr]
-           #:attr ast (update:assign ($ c.sym) ($ e.ast))))
+           #:attr ast (update:assign ($ c.ast) ($ e.ast))))
 
 ;; ============================================================
 ;; Insert Statement
@@ -94,9 +94,9 @@
 
 (define-splicing-syntax-class InsertTarget
   #:attributes (table columns)
-  (pattern (~seq #:into t:Ident (~optional (~seq (c:Ident ...))))
-           #:attr table ($ t.sym)
-           #:attr columns ($ c.sym)))
+  (pattern (~seq #:into t:Name (~optional (~seq (c:Ident ...))))
+           #:attr table ($ t.ast)
+           #:attr columns ($ c.ast)))
 
 (define-splicing-syntax-class InsertSource
   #:attributes (ast)
@@ -148,7 +148,7 @@
   #:attributes (ast)
   #:datum-literals (as)
   (pattern (as expr:ScalarExpr column:Ident)
-           #:attr ast (select-item:as ($ expr.ast) ($ column.sym)))
+           #:attr ast (select-item:as ($ expr.ast) ($ column.ast)))
   (pattern expr:ScalarExpr
            #:attr ast ($ expr.ast)))
 
@@ -162,8 +162,8 @@
 
 (define-splicing-syntax-class SelectGroupByClause
   #:attributes (columns)
-  (pattern (~seq #:group-by c:Ident ...)
-           #:attr columns ($ c.sym)))
+  (pattern (~seq #:group-by c:Name ...)
+           #:attr columns ($ c.ast)))
 
 (define-splicing-syntax-class SelectHavingClause
   #:attributes ([ast 1])
@@ -197,13 +197,13 @@
 (define-syntax-class TableRef
   #:attributes (ast)
   #:datum-literals (as)
-  (pattern table-name:Ident
-           #:attr ast (table-ref:id ($ table-name.sym)))
-  (pattern (as table-name:Ident range-var:Ident)
-           #:attr ast (table-ref:as (table-ref:id ($ table-name.sym))
-                                    ($ range-var.sym)))
+  (pattern table-name:Name
+           #:attr ast (table-ref:name ($ table-name.ast)))
+  (pattern (as table-name:Name range-var:Ident)
+           #:attr ast (table-ref:as (table-ref:name ($ table-name.ast))
+                                    ($ range-var.ast)))
   (pattern (as t:TableExpr range-var:Ident)
-           #:attr ast (table-ref:as ($ t.ast) ($ range-var.sym)))
+           #:attr ast (table-ref:as ($ t.ast) ($ range-var.ast)))
   (pattern :TableExpr))
 
 (define-syntax-class TableExpr
@@ -243,7 +243,7 @@
 (define-splicing-syntax-class set-op-clause
   (pattern (~seq #:corresponding)
            #:attr corr 'auto)
-  (pattern (~seq #:corresponding-by (column:id ...))
+  (pattern (~seq #:corresponding-by (column:Ident ...))
            #:attr corr (syntax->datum #'(column ...)))
   (pattern (~seq)
            #:attr corr #f))
@@ -270,8 +270,7 @@
            #:attr ast (syntax-e #'n))
   (pattern s:str
            #:attr ast (syntax-e #'s))
-  (pattern var:Ident
-           #:attr ast ($ var.sym))
+  (pattern :Name)
   (pattern ?
            #:attr ast (scalar:placeholder))
   (pattern (literal s:str)
@@ -284,14 +283,73 @@
 
 (define-syntax-class Op
   #:attributes (op)
-  (pattern o:Ident
-           #:attr op (cond [(assq ($ o.sym) standard-ops) => cadr] [else #f])
+  (pattern o:id ;; FIXME
+           #:attr op (cond [(assq (syntax-e #'o) standard-ops) => cadr] [else #f])
            #:when ($ op)))
 
 ;; ============================================================
 ;; Other
 
+(define-syntax-class Name
+  #:attributes (ast)
+  #:datum-literals (ident: qname:)
+  (pattern x:id
+           #:fail-when (special-symbol? (syntax-e #'x)) "reserved word"
+           #:attr ast (symbol->name (syntax-e #'x))
+           #:when ($ ast))
+  (pattern (ident: x:id)
+           #:attr ast (syntax-e #'x))
+  (pattern (ident: x:str)
+           #:attr ast (id:literal (syntax-e #'x)))
+  (pattern (qname: part:Name ...+)
+           #:attr ast (name-list->name ($ part.ast))))
+
 (define-syntax-class Ident
-  #:attributes (sym)
-  (pattern (~and x:id (~not (~datum ?)))
-           #:attr sym (syntax-e #'x)))
+  #:attributes (ast)
+  (pattern x:Name
+           #:fail-when (qname? ($ x.ast)) "qualified name"
+           #:attr ast ($ x.ast)))
+
+(define (symbol->name s)
+  (define parts (regexp-split #rx"\\." (symbol->string s)))
+  (and (for/and ([part (in-list parts)]) (positive? (string-length part)))
+       (symbol-list->name (map string->symbol parts))))
+
+(define (symbol-list->name parts)
+  (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])
+    (qname qual part)))
+
+(define (name-list->name ns)
+  (define (prepend qual n)
+    (match n
+      [(qname qual* id)
+       (qname (prepend qual qual*) id)]
+      [_
+       (qname qual n)]))
+  (for/fold ([qual (car ns)]) ([n (in-list (cdr ns))])
+    (prepend qual n)))
+
+;; The following symbols are special in this library and are not
+;; parsed as identifiers. Note: "special" overlaps with, but is not
+;; the same as, "reserved word" in SQL.
+
+(define (special-symbol? sym)
+  (and (memq sym special-symbols) #t))
+
+(define special-symbols
+  '(? unquote     ;; these have other special meanings
+    select insert update delete
+    from as where ;; to catch forgotten "#:" mistakes
+    ))
+
+(define (SQL-compound-regular-id? s)
+  (define parts (regexp-split #rx"\\." s))
+  (for/and ([part (in-list parts)])
+    (SQL-regular-id? part)))
+
+#;
+(define-syntax-class SafeString
+  #:attributes (s)
+  (pattern x:str
+           #:when (safe-string? (syntax-e #'x))
+           #:attr s (syntax-e #'x)))

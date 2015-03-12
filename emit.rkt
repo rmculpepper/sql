@@ -5,22 +5,9 @@
          racket/list
          (rename-in racket/match [match-define defmatch])
          racket/format
-         "ast.rkt")
+         "ast.rkt"
+         "jumble.rkt")
 (provide (all-defined-out))
-
-;; ============================================================
-;; Util: jumbles
-
-;; A Jumble is String | (Listof Jumble)
-(define (J . args) args)
-(define (J-join js sep) (add-between js sep))
-
-(define (jumble->string j)
-  (define out (open-output-string))
-  (let loop ([j j])
-    (cond [(string? j) (write-string j out)]
-          [else (for-each loop j)]))
-  (get-output-string out))
 
 ;; ============================================================
 ;; Emit according to concrete syntax for minimal parenthesization.
@@ -56,7 +43,7 @@
             (J " WHERE " (J-join (map emit-scalar-expr wheres) " AND "))
             "")
         (if (pair? groupby)
-            (J " GROUP BY " (J-join (map emit-id groupby) ", "))
+            (J " GROUP BY " (J-join (map emit-name groupby) ", "))
             "")
         (if (pair? having)
             (J " HAVING " (J-join (map emit-scalar-expr having) " AND "))
@@ -77,13 +64,13 @@
 (define (emit-select-item si)
   (match si
     [(select-item:as expr var)
-     (J (emit-scalar-expr expr) " AS " (emit-id var))]
+     (J (emit-scalar-expr expr) " AS " (emit-ident var))]
     [_ (emit-scalar-expr si)]))
 
 (define (emit-select-order so)
   (match so
     [(select:order column asc/desc)
-     (J (emit-id column)
+     (J (emit-name column)
         (case asc/desc
           [(asc) " ASC"]
           [(desc) " DESC"]
@@ -95,9 +82,9 @@
   (match i
     [(stmt:insert table columns source)
      (J "INSERT INTO "
-        (emit-id table)
+        (emit-name table)
         (if columns
-            (J " (" (J-join (map emit-id columns) ", ") ") ")
+            (J " (" (J-join (map emit-ident columns) ", ") ") ")
             " ")
         (emit-table-expr source))]))
 
@@ -107,7 +94,7 @@
   (match u
     [(stmt:update table assign where)
      (J "UPDATE "
-        (emit-id table)
+        (emit-name table)
         " SET "
         (J-join (map emit-update-assign assign) ", ")
         (if (pair? where)
@@ -117,7 +104,7 @@
 (define (emit-update-assign a)
   (match a
     [(update:assign column expr)
-     (J (emit-id column) " = " (emit-scalar-expr expr))]))
+     (J (emit-ident column) " = " (emit-scalar-expr expr))]))
 
 ;; ----------------------------------------
 
@@ -125,7 +112,7 @@
   (match d
     [(stmt:delete table where)
      (J "DELETE FROM "
-        (emit-id table)
+        (emit-name table)
         (if (pair? where)
             (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
             ""))]))
@@ -158,19 +145,19 @@
         (emit-table-ref t2)
         (match on
           [`(using ,columns)
-           (J " USING (" (J-join (map emit-id columns) ", ") ")")]
+           (J " USING (" (J-join (map emit-ident columns) ", ") ")")]
           [`(on ,condition)
            (J " ON " (emit-scalar-expr condition))]
           [_ ""]))]))
 
 (define (emit-table-ref t)
   (match t
-    [(table-ref:id table-name)
-     (emit-id table-name)]
-    [(table-ref:as (table-ref:id table-name) rangevar)
-     (J (emit-id table-name) " AS " (emit-id rangevar))]
+    [(table-ref:name table-name)
+     (emit-name table-name)]
+    [(table-ref:as (table-ref:name table-name) rangevar)
+     (J (emit-name table-name) " AS " (emit-ident rangevar))]
     [(table-ref:as table-expr rangevar)
-     (J "(" (emit-table-expr table-expr) ") AS " (emit-id rangevar))]
+     (J "(" (emit-table-expr table-expr) ") AS " (emit-ident rangevar))]
     [(? join-table-expr?)
      (emit-join-table-expr t)]
     [_
@@ -230,7 +217,7 @@
        [`#f ""]
        [`#t "CORRESPONDING "]
        [(list columns ...)
-        (J "CORRESPONDING (" (J-join (map emit-id columns) ", ") ") ")])))
+        (J "CORRESPONDING (" (J-join (map emit-ident columns) ", ") ") ")])))
 
 ;; ----------------------------------------
 
@@ -242,13 +229,24 @@
      "?"]
     [(scalar:literal s)
      s]
-    [(? symbol?)
-     (~s e)]
+    [(or (? symbol?) (? qname?))
+     (emit-name e)]
     [(? string?)
-     (~s e)]
+     (J "'" (regexp-replace* #rx"'" e "''") "'")]
     [(? exact-integer?)
      (~s e)]))
 
 ;; ----------------------------------------
 
-(define (emit-id id) (~a id))
+(define (emit-name n)
+  (match n
+    [(qname qual id)
+     (J (emit-name qual) "." (emit-ident id))]
+    [_ (emit-ident n)]))
+
+(define (emit-ident id)
+  (match id
+    [(id:literal (? string? s))
+     (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
+    [(? symbol? s)
+     (symbol->string s)]))

@@ -5,7 +5,8 @@
          (rename-in racket/match [match-define defmatch])
          racket/generic
          racket/class
-         racket/format)
+         racket/format
+         "jumble.rkt")
 (provide (all-defined-out))
 
 ;; TODO:
@@ -30,11 +31,11 @@
 
 ;; A Select is 
 ;; (stmt:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr)
-;;              (Listof Symbol) (Listof ScalarExpr) (U SelectExtension #f))
+;;              (Listof Name) (Listof ScalarExpr) (U SelectExtension #f))
 (struct stmt:select (vals from where groupby having ext) #:transparent)
 
 ;; A SelectItem is one of
-;; - (select-item:as ScalarExpr Symbol)
+;; - (select-item:as ScalarExpr Ident)
 ;; - ScalarExpr
 (struct select-item:as (expr name) #:transparent)
 
@@ -42,39 +43,39 @@
 ;; (select:extension (Listof SelectOrder) (U ScalarExpr #f) (U ScalarExpr #f))
 (struct select:extension (order limit offset) #:transparent)
 
-;; A SelectOrder is (select:order Symbol (U 'asc 'desc #f))
+;; A SelectOrder is (select:order ScalarExpr (U 'asc 'desc #f))
 (struct select:order (column asc/desc) #:transparent)
 
 ;; ----------------------------------------
 ;; Insert
 
-;; An Insert is (stmt:insert Symbol (U (Listof Symbol) #f) TableExpr)
+;; An Insert is (stmt:insert Name (U (Listof Ident) #f) TableExpr)
 (struct stmt:insert (table columns source) #:transparent)
 
 ;; ----------------------------------------
 ;; Update
 
-;; An Update is (stmt:update Symbol (Listof UpdateAssign) (Listof ScalarExpr))
+;; An Update is (stmt:update Name (Listof UpdateAssign) (Listof ScalarExpr))
 (struct stmt:update (table assign where) #:transparent)
 
-;; An UpdateAssign is (update:assign Symbol ScalarExpr)
+;; An UpdateAssign is (update:assign Ident ScalarExpr)
 (struct update:assign (column expr) #:transparent)
 
 ;; ----------------------------------------
 ;; Delete
 
-;; A Delete is (stmt:delete Symbol (Listof ScalarExpr))
+;; A Delete is (stmt:delete Name (Listof ScalarExpr))
 (struct stmt:delete (table where) #:transparent)
 
 ;; ----------------------------------------
 ;; Table References
 
 ;; A TableRef is one of
-;; - (table-ref:id Symbol)
-;; - (table-ref:as TableExpr Symbol)
+;; - (table-ref:name Name)
+;; - (table-ref:as TableExpr Ident)
 ;; - TableExpr
 
-(struct table-ref:id (id) #:transparent)
+(struct table-ref:name (name) #:transparent)
 (struct table-ref:as (e rangevar) #:transparent)
 
 ;; ----------------------------------------
@@ -108,7 +109,7 @@
 ;; - (scalar:app Op (Listof ScalarExpr))
 ;; - (scalar:placeholder)
 ;; - (scalar:literal String)
-;; - Symbol
+;; - Name
 ;; - ExactInteger
 ;; - String
 (struct scalar:app (op args) #:transparent)
@@ -117,7 +118,7 @@
 
 ;; An Op is (op Arity Formatter)
 ;; where Arity     = Nat | (Nat) -- latter indicates arity at least
-;;       Formatter = Value ... -> String
+;;       Formatter = String ... -> String
 (struct op (arity formatter) #:transparent)
 
 (define (arity-includes? a n)
@@ -125,13 +126,13 @@
         [else (= n a)]))
 
 (define ((infix-op separator) . args)
-  (~a "(" (string-join args separator) ")"))
+  (J "(" (J-join args separator) ")"))
 
 (define (infix-op-entry sym [op-string (~a " " sym " ")])
   (list sym (op '(1) (infix-op op-string))))
 
 (define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
-  (~a op-string "(" (string-join args arg-sep) ")"))
+  (J op-string "(" (J-join args arg-sep) ")"))
 
 (define standard-ops
   `([cast ,(op 2 (fun-op "cast" #:arg-sep " as "))]
@@ -148,3 +149,29 @@
     ,(infix-op-entry '<=)
     ,(infix-op-entry '>)
     ,(infix-op-entry '>=)))
+
+;; ----
+
+;; A Name is one of
+;; - Ident                -- unqualified name
+;; - (qname Name Ident)   -- qualified name
+(struct qname (qual id) #:transparent)
+
+;; An Ident is one of
+;; - Symbol               -- to be transmitted unquoted
+;; - (id:literal String)  -- to be quoted when emitted
+(struct id:literal (s) #:transparent)
+
+;; TODO:
+;; - have predicate for unquoted ids?
+;; - have mode where Racket identifier parsed as lit-id?
+;; - ...?
+
+;; Notes on SQL identifier syntax:
+;; - Date & Darwen pp33-35
+;; - PostgreSQL: http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html
+;; - SQLite: http://www.sqlite.org/lang_keywords.html
+;; - MySQL: http://dev.mysql.com/doc/refman/5.0/en/identifiers.html
+
+(define (SQL-regular-id? s)
+  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9]*$" s))
