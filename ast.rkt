@@ -36,8 +36,10 @@
 
 ;; A SelectItem is one of
 ;; - (select-item:as ScalarExpr Ident)
+;; - (select-item:all)
 ;; - ScalarExpr
 (struct select-item:as (expr name) #:transparent)
+(struct select-item:all () #:transparent)
 
 ;; A SelectExtension is
 ;; (select:extension (Listof SelectOrder) (U ScalarExpr #f) (U ScalarExpr #f))
@@ -116,27 +118,19 @@
 (struct scalar:placeholder () #:transparent)
 (struct scalar:literal (s) #:transparent)
 
-;; An Op is (op Arity Formatter)
-;; where Arity     = Nat | (Nat) -- latter indicates arity at least
-;;       Formatter = String ... -> String
-(struct op (arity formatter) #:transparent)
-
-(define (arity-includes? a n)
-  (cond [(pair? a) (> n (car a))]
-        [else (= n a)]))
-
+(define (infix-op-entry sym [op-string (~a " " sym " ")])
+  (list sym '(1) (infix-op op-string)))
+(define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
+  (J op-string "(" (J-join args arg-sep) ")"))
 (define ((infix-op separator) . args)
   (J "(" (J-join args separator) ")"))
 
-(define (infix-op-entry sym [op-string (~a " " sym " ")])
-  (list sym (op '(1) (infix-op op-string))))
-
-(define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
-  (J op-string "(" (J-join args arg-sep) ")"))
-
 (define standard-ops
-  `([cast ,(op 2 (fun-op "cast" #:arg-sep " as "))]
-    [coalesce ,(op '(2) (fun-op "coalesce"))]
+  `(;;[Symbol Arity Formatter]
+    ;; where Arity     = Nat | (Nat) -- latter indicates arity at least
+    ;;       Formatter = String ... -> String
+    [cast      2  ,(fun-op "cast" #:arg-sep " as ")]
+    [coalesce (2) ,(fun-op "coalesce")]
     ,(infix-op-entry '+)
     ,(infix-op-entry '-)
     ,(infix-op-entry '*)
@@ -150,7 +144,20 @@
     ,(infix-op-entry '>)
     ,(infix-op-entry '>=)))
 
-;; ----
+(define (op-formatter op-name)
+  (cond [(assoc op-name standard-ops) => caddr]
+        [else #f]))
+
+(define (check-arity op-name n-args)
+  (cond [(assoc op-name standard-ops)
+         => (lambda (entry) (arity-includes? (cadr entry) n-args))]
+        [else #t]))
+
+(define (arity-includes? a n)
+  (cond [(pair? a) (> n (car a))]
+        [else (= n a)]))
+
+;; ----------------------------------------
 
 ;; A Name is one of
 ;; - Ident                -- unqualified name
@@ -166,12 +173,3 @@
 ;; - have predicate for unquoted ids?
 ;; - have mode where Racket identifier parsed as lit-id?
 ;; - ...?
-
-;; Notes on SQL identifier syntax:
-;; - Date & Darwen pp33-35
-;; - PostgreSQL: http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html
-;; - SQLite: http://www.sqlite.org/lang_keywords.html
-;; - MySQL: http://dev.mysql.com/doc/refman/5.0/en/identifiers.html
-
-(define (SQL-regular-id? s)
-  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9]*$" s))

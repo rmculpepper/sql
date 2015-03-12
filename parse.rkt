@@ -146,9 +146,12 @@
 
 (define-syntax-class SelectItem
   #:attributes (ast)
-  #:datum-literals (as)
+  #:datum-literals (as *)
   (pattern (as expr:ScalarExpr column:Ident)
            #:attr ast (select-item:as ($ expr.ast) ($ column.ast)))
+  (pattern *
+           ;; FIXME: add qualified.* support
+           #:attr ast (select-item:all))
   (pattern expr:ScalarExpr
            #:attr ast ($ expr.ast)))
 
@@ -275,20 +278,25 @@
            #:attr ast (scalar:placeholder))
   (pattern (literal s:str)
            #:attr ast (scalar:literal (syntax-e #'s)))
-  (pattern (o:Op arg:ScalarExpr ...)
-           #:fail-unless (arity-includes? (op-arity (attribute o.op))
-                                          (length (syntax->list #'(arg ...))))
+  (pattern (op:Op arg:ScalarExpr ...)
+           #:fail-unless (check-arity ($ op.ast)
+                                      (length (syntax->list #'(arg ...))))
                          "wrong arity"
-           #:attr ast (scalar:app (attribute o.op) (attribute arg.ast))))
+           #:attr ast (scalar:app ($ op.ast) ($ arg.ast))))
 
 (define-syntax-class Op
-  #:attributes (op)
-  (pattern o:id ;; FIXME
-           #:attr op (cond [(assq (syntax-e #'o) standard-ops) => cadr] [else #f])
-           #:when ($ op)))
+  #:attributes (ast)
+  (pattern :NonSpecialId)
+  (pattern :Name))
 
 ;; ============================================================
 ;; Other
+
+;; Notes on SQL identifier syntax:
+;; - Date & Darwen pp33-35
+;; - PostgreSQL: http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html
+;; - SQLite: http://www.sqlite.org/lang_keywords.html
+;; - MySQL: http://dev.mysql.com/doc/refman/5.0/en/identifiers.html
 
 (define-syntax-class Name
   #:attributes (ast)
@@ -310,10 +318,20 @@
            #:fail-when (qname? ($ x.ast)) "qualified name"
            #:attr ast ($ x.ast)))
 
+(define-syntax-class NonSpecialId
+  #:attributes (ast)
+  (pattern x:id
+           #:fail-when (special-symbol? (syntax-e #'x)) "reserved word"
+           #:attr ast (syntax-e #'x)))
+
 (define (symbol->name s)
   (define parts (regexp-split #rx"\\." (symbol->string s)))
-  (and (for/and ([part (in-list parts)]) (positive? (string-length part)))
+  (and (for/and ([part (in-list parts)])
+         (SQL-regular-id? part))
        (symbol-list->name (map string->symbol parts))))
+
+(define (SQL-regular-id? s)
+  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9_]*$" s))
 
 (define (symbol-list->name parts)
   (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])
@@ -346,10 +364,3 @@
   (define parts (regexp-split #rx"\\." s))
   (for/and ([part (in-list parts)])
     (SQL-regular-id? part)))
-
-#;
-(define-syntax-class SafeString
-  #:attributes (s)
-  (pattern x:str
-           #:when (safe-string? (syntax-e #'x))
-           #:attr s (syntax-e #'x)))

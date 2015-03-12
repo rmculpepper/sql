@@ -65,6 +65,8 @@
   (match si
     [(select-item:as expr var)
      (J (emit-scalar-expr expr) " AS " (emit-ident var))]
+    [(select-item:all)
+     "*"]
     [_ (emit-scalar-expr si)]))
 
 (define (emit-select-order so)
@@ -223,7 +225,8 @@
 
 (define (emit-scalar-expr e)
   (match e
-    [(scalar:app (op _ formatter) args)
+    [(scalar:app op args)
+     (define formatter (or (op-formatter op) (fun-op (emit-name op))))
      (apply formatter (map emit-scalar-expr args))]
     [(scalar:placeholder)
      "?"]
@@ -234,7 +237,7 @@
     [(? string?)
      (J "'" (regexp-replace* #rx"'" e "''") "'")]
     [(? exact-integer?)
-     (~s e)]))
+     (number->string e)]))
 
 ;; ----------------------------------------
 
