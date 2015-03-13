@@ -44,71 +44,6 @@
   (pattern (~and ((~datum delete) . _) :DeleteInner)))
 
 ;; ============================================================
-;; Delete Statement
-
-(define-syntax-class DeleteInner
-  #:description #f
-  #:attributes (ast)
-  (pattern (_ (~or (~once :DeleteFromClause)
-                   (~optional where:WhereClause))
-              ...)
-           #:attr ast (stmt:delete ($ table) (or ($ where.ast) null))))
-
-(define-splicing-syntax-class DeleteFromClause
-  #:attributes (table)
-  (pattern (~seq #:from t:Name)
-           #:attr table ($ t.ast)))
-
-;; ============================================================
-;; Update Statement
-
-(define-syntax-class UpdateInner
-  #:description #f
-  #:attributes (ast)
-  (pattern (_ table:Name
-              (~or (~once assign:UpdateAssignClause)
-                   (~optional where:WhereClause))
-              ...)
-           #:attr ast (stmt:update ($ table.ast) ($ assign.ast)
-                                   (or ($ where.ast) null))))
-
-(define-splicing-syntax-class UpdateAssignClause
-  #:attributes ([ast 1])
-  (pattern (~seq #:set :UpdateAssignment ...)))
-
-(define-syntax-class UpdateAssignment
-  #:attributes (ast)
-  (pattern [c:Ident e:ScalarExpr]
-           #:attr ast (update:assign ($ c.ast) ($ e.ast))))
-
-;; ============================================================
-;; Insert Statement
-
-;; TODO: want to also support following syntax:
-;;   (insert table ([column expr] ...))
-
-(define-syntax-class InsertInner
-  #:description #f
-  #:attributes (ast)
-  (pattern (_ (~or (~once :InsertTarget)
-                   (~once src:InsertSource))
-              ...)
-           #:attr ast (stmt:insert ($ table) ($ columns) ($ src.ast))))
-
-(define-splicing-syntax-class InsertTarget
-  #:attributes (table columns)
-  (pattern (~seq #:into t:Name (~optional (~seq (c:Ident ...))))
-           #:attr table ($ t.ast)
-           #:attr columns ($ c.ast)))
-
-(define-splicing-syntax-class InsertSource
-  #:attributes (ast)
-  (pattern (~seq #:values e:ScalarExpr ...)
-           #:attr ast (table-expr:values (list ($ e.ast))))
-  (pattern (~seq #:from :TableExpr)))
-
-
-;; ============================================================
 ;; Select Statement
 
 (define-syntax-class SelectInner
@@ -197,6 +132,69 @@
   #:attributes (ast)
   (pattern (~seq #:offset :ScalarExpr)))
 
+;; ============================================================
+;; Insert Statement
+
+;; TODO: want to also support following syntax:
+;;   (insert table ([column expr] ...))
+
+(define-syntax-class InsertInner
+  #:description #f
+  #:attributes (ast)
+  (pattern (_ (~or (~once :InsertTarget)
+                   (~once src:InsertSource))
+              ...)
+           #:attr ast (stmt:insert ($ table) ($ columns) ($ src.ast))))
+
+(define-splicing-syntax-class InsertTarget
+  #:attributes (table columns)
+  (pattern (~seq #:into t:Name (~optional (~seq (c:Ident ...))))
+           #:attr table ($ t.ast)
+           #:attr columns ($ c.ast)))
+
+(define-splicing-syntax-class InsertSource
+  #:attributes (ast)
+  (pattern (~seq #:values e:ScalarExpr ...)
+           #:attr ast (table-expr:values (list ($ e.ast))))
+  (pattern (~seq #:from :TableExpr)))
+
+;; ============================================================
+;; Update Statement
+
+(define-syntax-class UpdateInner
+  #:description #f
+  #:attributes (ast)
+  (pattern (_ table:Name
+              (~or (~once assign:UpdateAssignClause)
+                   (~optional where:WhereClause))
+              ...)
+           #:attr ast (stmt:update ($ table.ast) ($ assign.ast)
+                                   (or ($ where.ast) null))))
+
+(define-splicing-syntax-class UpdateAssignClause
+  #:attributes ([ast 1])
+  (pattern (~seq #:set :UpdateAssignment ...)))
+
+(define-syntax-class UpdateAssignment
+  #:attributes (ast)
+  (pattern [c:Ident e:ScalarExpr]
+           #:attr ast (update:assign ($ c.ast) ($ e.ast))))
+
+;; ============================================================
+;; Delete Statement
+
+(define-syntax-class DeleteInner
+  #:description #f
+  #:attributes (ast)
+  (pattern (_ (~or (~once :DeleteFromClause)
+                   (~optional where:WhereClause))
+              ...)
+           #:attr ast (stmt:delete ($ table) (or ($ where.ast) null))))
+
+(define-splicing-syntax-class DeleteFromClause
+  #:attributes (table)
+  (pattern (~seq #:from t:Name)
+           #:attr table ($ t.ast)))
 
 ;; ============================================================
 ;; Table References && Expressions
