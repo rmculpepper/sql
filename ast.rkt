@@ -27,6 +27,10 @@
 ;; ============================================================
 ;; Abstract Nonterminals
 
+;; The AST datatypes used prefab structs so that a compile-time AST
+;; can be turned into a run-time AST simply via quoting (or
+;; quasiquoting, to support run-time splicing).
+
 ;; ----------------------------------------
 ;; Select
 
