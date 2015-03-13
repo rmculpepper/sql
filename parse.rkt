@@ -47,9 +47,10 @@
 ;; Delete Statement
 
 (define-syntax-class DeleteInner
+  #:description #f
   #:attributes (ast)
   (pattern (_ (~or (~once :DeleteFromClause)
-                   (~optional where:SelectWhereClause))
+                   (~optional where:WhereClause))
               ...)
            #:attr ast (stmt:delete ($ table) (or ($ where.ast) null))))
 
@@ -62,10 +63,11 @@
 ;; Update Statement
 
 (define-syntax-class UpdateInner
+  #:description #f
   #:attributes (ast)
   (pattern (_ table:Name
               (~or (~once assign:UpdateAssignClause)
-                   (~optional where:SelectWhereClause))
+                   (~optional where:WhereClause))
               ...)
            #:attr ast (stmt:update ($ table.ast) ($ assign.ast)
                                    (or ($ where.ast) null))))
@@ -86,6 +88,7 @@
 ;;   (insert table ([column expr] ...))
 
 (define-syntax-class InsertInner
+  #:description #f
   #:attributes (ast)
   (pattern (_ (~or (~once :InsertTarget)
                    (~once src:InsertSource))
@@ -109,11 +112,12 @@
 ;; Select Statement
 
 (define-syntax-class SelectInner
+  #:description #f
   #:attributes (ast)
   (pattern (_ vs:SelectValues
               (~or (~optional sel:SelectValuesClause)
                    (~optional from:SelectFromClause)
-                   (~optional where:SelectWhereClause)
+                   (~optional where:WhereClause)
                    (~optional groupby:SelectGroupByClause)
                    (~optional having:SelectHavingClause)
                    (~optional order:SelectOrderClause)
@@ -159,7 +163,7 @@
   #:attributes ([ast 1])
   (pattern (~seq #:from :TableRef ...)))
 
-(define-splicing-syntax-class SelectWhereClause
+(define-splicing-syntax-class WhereClause
   #:attributes ([ast 1])
   (pattern (~seq #:where :ScalarExpr ...)))
 
@@ -306,7 +310,7 @@
   #:attributes (ast)
   #:datum-literals (ident: qname:)
   (pattern x:id
-           #:fail-when (special-symbol? (syntax-e #'x)) "reserved word"
+           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:attr ast (symbol->name (syntax-e #'x))
            #:when ($ ast))
   (pattern (ident: x:id)
@@ -319,13 +323,13 @@
 (define-syntax-class Ident
   #:attributes (ast)
   (pattern x:Name
-           #:fail-when (qname? ($ x.ast)) "qualified name"
+           #:fail-when (qname? ($ x.ast)) "expected unqualified name"
            #:attr ast ($ x.ast)))
 
 (define-syntax-class NonSpecialId
   #:attributes (ast)
   (pattern x:id
-           #:fail-when (special-symbol? (syntax-e #'x)) "reserved word"
+           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:attr ast (syntax-e #'x)))
 
 (define (symbol->name s)
