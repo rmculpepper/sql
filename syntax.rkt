@@ -5,22 +5,23 @@
          "emit.rkt")
 (provide (all-defined-out))
 
+(begin-for-syntax
+  (define (make-stmt-expr ast)
+    ;; Use #'here lexical context for embedded unquote
+    #`(statement->string (quasiquote #,(datum->syntax #'here ast)))))
+
 (define-syntax (select stx)
   (syntax-parse stx
-    [:SelectInner
-     #`(statement->string (quote #,($ ast)))]))
+    [:SelectInner (make-stmt-expr ($ ast))]))
 
 (define-syntax (insert stx)
   (syntax-parse stx
-    [:InsertInner
-     #`(statement->string (quote #,($ ast)))]))
+    [:InsertInner (make-stmt-expr ($ ast))]))
 
 (define-syntax (update stx)
   (syntax-parse stx
-    [:UpdateInner
-     #`(statement->string (quote #,($ ast)))]))
+    [:UpdateInner (make-stmt-expr ($ ast))]))
 
 (define-syntax (delete stx)
   (syntax-parse stx
-    [:DeleteInner
-     #`(statement->string (quote #,($ ast)))]))
+    [:DeleteInner (make-stmt-expr ($ ast))]))
