@@ -1,5 +1,7 @@
 #lang racket
-(require "main.rkt")
+(require "main.rkt"
+         "private/parse.rkt"
+         "private/emit.rkt")
 
 (define (test stx)
   (define s (parse-statement stx))
