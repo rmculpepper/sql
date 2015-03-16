@@ -225,13 +225,13 @@
 
 (define (emit-scalar-expr e)
   (match e
+    [(scalar:inject sql)
+     sql]
     [(scalar:app op args)
      (define formatter (or (op-formatter op) (fun-op (emit-name op))))
      (apply formatter (map emit-scalar-expr args))]
     [(scalar:placeholder)
      "?"]
-    [(scalar:literal s)
-     s]
     [(or (? symbol?) (? qname?))
      (emit-name e)]
     [(? string?)
@@ -249,7 +249,7 @@
 
 (define (emit-ident id)
   (match id
-    [(id:literal (? string? s))
+    [(id:quoted (? string? s))
      (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
     [(? symbol? s)
      (symbol->string s)]))

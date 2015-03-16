@@ -4,7 +4,9 @@
 (require syntax/parse
          (only-in syntax/parse [attribute $])
          (rename-in racket/match [match-define defmatch])
-         "ast.rkt")
+         "ast.rkt"
+         ;; For unquote-related contracts:
+         (for-template racket/base "ast.rkt"))
 (provide (all-defined-out))
 
 ;; ============================================================
@@ -270,7 +272,12 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (literal ?)
+  #:datum-literals (ScalarExpr: ScalarExpr:INJECT unquote ?)
+  (pattern (ScalarExpr: (unquote ~! e))
+           #:declare e (expr/c #'scalar-expr?)
+           #:attr ast (list 'unquote #'e.c))
+  (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
+           #:attr ast (scalar:inject ($ inj.ast)))
   (pattern n:exact-integer
            #:attr ast (syntax-e #'n))
   (pattern s:str
@@ -278,8 +285,6 @@
   (pattern :Name)
   (pattern ?
            #:attr ast (scalar:placeholder))
-  (pattern (literal s:str)
-           #:attr ast (scalar:literal (syntax-e #'s)))
   (pattern (op:Op arg:ScalarExpr ...)
            #:fail-unless (check-arity ($ op.ast)
                                       (length (syntax->list #'(arg ...))))
@@ -292,7 +297,7 @@
   (pattern :Name))
 
 ;; ============================================================
-;; Other
+;; Names and Identifiers
 
 ;; TODO:
 ;; - have mode where Racket identifier parsed as lit-id?
@@ -316,7 +321,7 @@
   (pattern (ident: x:id)
            #:attr ast (syntax-e #'x))
   (pattern (ident: x:str)
-           #:attr ast (id:literal (syntax-e #'x)))
+           #:attr ast (id:quoted (syntax-e #'x)))
   (pattern (qname: part:Name ...+)
            #:attr ast (name-list->name ($ part.ast))))
 
@@ -374,3 +379,16 @@
   (define parts (regexp-split #rx"\\." s))
   (for/and ([part (in-list parts)])
     (SQL-regular-id? part)))
+
+
+;; ============================================================
+;; Other
+
+(define-syntax-class StringOrUnquote
+  #:attributes (ast)
+  #:datum-literals (unquote)
+  (pattern (unquote e)
+           #:declare e (expr/c #'string?)
+           #:attr ast (list 'unquote #'e.c))
+  (pattern s:str
+           #:attr ast (syntax-e #'s)))

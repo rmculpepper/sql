@@ -33,6 +33,22 @@
 ;; can be turned into a run-time AST simply via quoting (or
 ;; quasiquoting, to support run-time splicing).
 
+;; A nonterminal NT may support the following additional forms for
+;; dynamic ast composition and SQL injection:
+;; - (NT: ,expr)
+;; - (NT:INJECT string)
+;; - (NT:INJECT ,expr)
+;; For those NTs, the corresponding AST type contains the following variants:
+;; - (list 'unquote Syntax)                        -- represents case (1) above
+;; - (NT:inject (U String (list 'unquote Syntax))) -- represents (2) and (3)
+
+;; Note for ScalarExpr: the three following forms are distinct:
+;; - (select ,expr)                      -- TODO: turns into placeholder
+;; - (select (ScalarExpr: ,expr))        -- splices ast result of expr
+;; - (select (ScalarExpr:INJECT ,expr))  -- splices literal SQL code
+;; And note that the first form is restricted to ScalarExpr (and not
+;; implemented yet!).
+
 ;; ----------------------------------------
 ;; Select
 
@@ -95,10 +111,12 @@
 (struct table-expr:set-op (type t1 t2 opt corr) #:prefab)
 (struct table-expr:values (rows) #:prefab)
 (struct table-expr:select (select) #:prefab)
+(struct table-expr:inject (sql) #:prefab)
 
 (define (table-expr? x)
   (or (join-table-expr? x)
-      (nonjoin-table-expr? x)))
+      (nonjoin-table-expr? x)
+      (table-expr:inject? x)))
 
 ;; Indicates whether a join is the primary connective.
 (define (join-table-expr? x)
@@ -117,13 +135,22 @@
 ;; A ScalarExpr is one of
 ;; - (scalar:app Op (Listof ScalarExpr))
 ;; - (scalar:placeholder)
-;; - (scalar:literal String)
 ;; - Name
 ;; - ExactInteger
 ;; - String
+;; * (list 'unquote Syntax)
+;; * (scalar:inject (U String (list 'unquote Syntax)))
 (struct scalar:app (op args) #:prefab)
 (struct scalar:placeholder () #:prefab)
-(struct scalar:literal (s) #:prefab)
+(struct scalar:inject (s) #:prefab)
+
+(define (scalar-expr? x)
+  (or (scalar:app? x)
+      (scalar:placeholder? x)
+      (name? x)
+      (exact-integer? x)
+      (string? x)
+      (scalar:inject? x)))
 
 ;; FIXME: support:
 ;; - CASE {WHEN cond THEN result}* {ELSE result}? END
@@ -203,7 +230,15 @@
 ;; - (qname Name Ident)   -- qualified name
 (struct qname (qual id) #:prefab)
 
+(define (name? x)
+  (or (ident? x)
+      (qname? x)))
+
 ;; An Ident is one of
 ;; - Symbol               -- to be transmitted unquoted
 ;; - (id:literal String)  -- to be quoted when emitted
-(struct id:literal (s) #:prefab)
+(struct id:quoted (s) #:prefab)
+
+(define (ident? x)
+  (or (symbol? x)
+      (id:quoted? x)))
