@@ -309,8 +309,10 @@
   #:datum-literals (ident: qname:)
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
+           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
+                       "identifier includes SQL comment syntax"
            #:attr ast (symbol->name (syntax-e #'x))
-           #:when ($ ast))
+           #:when ($ ast)) ;; FIXME: need better error message!
   (pattern (ident: x:id)
            #:attr ast (syntax-e #'x))
   (pattern (ident: x:str)
@@ -328,6 +330,8 @@
   #:attributes (ast)
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
+           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
+                       "identifier includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))
 
 (define (symbol->name s)
