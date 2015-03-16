@@ -157,6 +157,8 @@
 
 (define (emit-table-ref t)
   (match t
+    [(table-ref:inject sql)
+     sql]
     [(table-ref:name table-name)
      (emit-name table-name)]
     [(table-ref:as (table-ref:name table-name) rangevar)

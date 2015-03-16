@@ -98,10 +98,19 @@
 ;; A TableRef is one of
 ;; - (table-ref:name Name)
 ;; - (table-ref:as TableExpr Ident)
+;; * (list 'unquote Syntax)
+;; * (table-ref:inject (U String (list 'unquote Syntax)))
 ;; - TableExpr
 
 (struct table-ref:name (name) #:prefab)
 (struct table-ref:as (e rangevar) #:prefab)
+(struct table-ref:inject (sql) #:prefab)
+
+(define (table-ref? x)
+  (or (table-ref:name? x)
+      (table-ref:as? x)
+      (table-ref:inject? x)
+      (table-expr? x)))
 
 ;; ----------------------------------------
 ;; Table Expressions

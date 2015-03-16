@@ -210,7 +210,12 @@
 
 (define-syntax-class TableRef
   #:attributes (ast)
-  #:datum-literals (as)
+  #:datum-literals (TableRef:AST TableRef:INJECT as)
+  (pattern (TableRef:AST ~! u)
+           #:declare u (UnquoteExpr/c #'table-ref?)
+           #:attr ast ($ u.ast))
+  (pattern (TableRef:INJECT ~! inj:StringOrUnquote)
+           #:attr ast (table-ref:inject ($ inj.ast)))
   (pattern table-name:Name
            #:attr ast (table-ref:name ($ table-name.ast)))
   (pattern (as table-name:Name range-var:Ident)
