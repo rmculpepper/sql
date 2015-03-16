@@ -3,7 +3,8 @@
                      (rename-in syntax/parse [attribute $])
                      "parse.rkt")
          "emit.rkt")
-(provide (all-defined-out))
+(provide (except-out (all-defined-out)
+                     define-ast-macros))
 
 (begin-for-syntax
   (define (make-stmt-expr ast)
@@ -25,3 +26,22 @@
 (define-syntax (delete stx)
   (syntax-parse stx
     [:DeleteInner (make-stmt-expr ($ ast))]))
+
+;; ============================================================
+;; ASTs
+
+(define-syntax-rule (define-ast-macros [name nt] ...)
+  (begin
+    (define-syntax (name stx)
+      (syntax-parse stx
+        [(_ x) #:declare x nt #`(quasiquote #,(datum->syntax #'here ($ x.ast)))]))
+    ...))
+
+(define-ast-macros
+  [SQL:Name Name]
+  [SQL:Ident Ident]
+  [SQL:TableRef TableRef]
+  [SQL:TableExpr TableExpr]
+  [SQL:ScalarExpr ScalarExpr]
+  [SQL:Statement Statement]
+  [SQL:Select Select])

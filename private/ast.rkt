@@ -35,16 +35,16 @@
 
 ;; A nonterminal NT may support the following additional forms for
 ;; dynamic ast composition and SQL injection:
-;; - (NT: ,expr)
-;; - (NT:INJECT string)
+;; - (NT:AST ,expr)
+;; - (NT:INJECT String)
 ;; - (NT:INJECT ,expr)
 ;; For those NTs, the corresponding AST type contains the following variants:
-;; - (list 'unquote Syntax)                        -- represents case (1) above
-;; - (NT:inject (U String (list 'unquote Syntax))) -- represents (2) and (3)
+;; - (list 'unquote Syntax)                        -- represents case (1)
+;; - (NT:inject (U String (list 'unquote Syntax))) -- represents case (2) and (3)
 
 ;; Note for ScalarExpr: the three following forms are distinct:
 ;; - (select ,expr)                      -- TODO: turns into placeholder
-;; - (select (ScalarExpr: ,expr))        -- splices ast result of expr
+;; - (select (ScalarExpr:AST ,expr))     -- splices ast result of expr
 ;; - (select (ScalarExpr:INJECT ,expr))  -- splices literal SQL code
 ;; And note that the first form is restricted to ScalarExpr (and not
 ;; implemented yet!).
@@ -207,7 +207,7 @@
                  [else (loop (cdr ops))])]
           [(regexp? (caar ops))
            (cond [(regexp-match? (caar ops) (symbol->string op))
-                  (cons op ((cadar ops)))]
+                  (cons op ((cadar ops) (caar ops)))]
                  [else (loop (cdr ops))])])))
 
 (define (op-formatter op-name)

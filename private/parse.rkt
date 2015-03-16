@@ -32,6 +32,13 @@
 ;; The following stxclasses recognize the statement type by symbol. In
 ;; contrast, macro versions will use the Inner stxclasses directly.
 
+(define-syntax-class Statement
+  #:attributes (ast)
+  (pattern :Select)
+  (pattern :Insert)
+  (pattern :Update)
+  (pattern :Delete))
+
 (define-syntax-class Select
   #:attributes (ast)
   (pattern (~and ((~datum select) . _) :SelectInner)))
@@ -215,10 +222,10 @@
 
 (define-syntax-class TableExpr
   #:attributes (ast)
-  #:datum-literals (TableExpr: TableExpr:INJECT cross-join values values*)
-  (pattern (TableExpr: ~! (unquote e))
-           #:declare e (expr/c #'table-expr?)
-           #:attr ast (list 'unquote #'e.c))
+  #:datum-literals (TableExpr:AST TableExpr:INJECT cross-join values values*)
+  (pattern (TableExpr:AST ~! u)
+           #:declare u (UnquoteExpr/c #'table-expr?)
+           #:attr ast ($ u.ast))
   (pattern (TableExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (table-expr:inject ($ inj.ast)))
   (pattern (cross-join t1:TableRef t2:TableRef)
@@ -277,10 +284,10 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (ScalarExpr: ScalarExpr:INJECT unquote ?)
-  (pattern (ScalarExpr: (unquote ~! e))
-           #:declare e (expr/c #'scalar-expr?)
-           #:attr ast (list 'unquote #'e.c))
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ?)
+  (pattern (ScalarExpr: u)
+           #:declare u (UnquoteExpr/c #'scalar-expr?)
+           #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
   (pattern n:exact-integer
@@ -388,6 +395,14 @@
 
 ;; ============================================================
 ;; Other
+
+(define-syntax-class (UnquoteExpr/c ctc)
+  #:attributes (c ast)
+  #:datum-literals (unquote)
+  (pattern (unquote e)
+           #:declare e (expr/c ctc)
+           #:with c #'e.c
+           #:attr ast (list 'unquote #'c)))
 
 (define-syntax-class StringOrUnquote
   #:attributes (ast)
