@@ -125,38 +125,70 @@
 (struct scalar:placeholder () #:prefab)
 (struct scalar:literal (s) #:prefab)
 
-(define (infix-op-entry sym [op-string (~a " " sym " ")])
-  (list sym '(1) (infix-op op-string)))
+;; FIXME: support:
+;; - CASE {WHEN cond THEN result}* {ELSE result}? END
+;; - EXISTS (subquery)
+;; - expr IN (subquery)
+;; - expr NOT IN (subquery)
+;; - row-constructor op (subquery)
+;; - expr IN (value ...), etc
+;; - expr op ANY (subquery)
+;; - expr op ALL (subquery)
+
+(define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '(1)])
+  (list sym arity (infix-op op-string)))
 (define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
   (J op-string "(" (J-join args arg-sep) ")"))
 (define ((infix-op separator) . args)
   (J "(" (J-join args separator) ")"))
 
+;; An OpEntry is one of
+;; - (list Symbol Arity Formatter)
+;; - (list Regexp (Symbol -> (list Arity Formatter)))
+;; where Arity     = Nat | (Nat) -- latter indicates arity at least
+;;       Formatter = String ... -> String
+
 (define standard-ops
-  `(;;[Symbol Arity Formatter]
-    ;; where Arity     = Nat | (Nat) -- latter indicates arity at least
-    ;;       Formatter = String ... -> String
-    [cast      2  ,(fun-op "cast" #:arg-sep " as ")]
-    [coalesce (2) ,(fun-op "coalesce")]
+  `([cast      2  ,(fun-op "CAST" #:arg-sep " AS ")]
+    [coalesce (2) ,(fun-op "COALESCE")]
+    [is-null   1  ,(lambda (arg) (J "(" arg " IS NULL)"))]
+    [is-not-null 1 ,(lambda (arg) (J "(" arg " IS NOT NULL)"))]
+    [extract 2 ,(fun-op "EXTRACT" #:arg-sep " FROM ")]
     ,(infix-op-entry '+)
     ,(infix-op-entry '-)
     ,(infix-op-entry '*)
     ,(infix-op-entry '/)
+    ,(infix-op-entry '|| " || ") ;; HACK! Note "||" reads as the empty symbol!
     ,(infix-op-entry 'string-append " || ")
     ,(infix-op-entry 'string+ " || ")
-    ,(infix-op-entry '=)
-    ,(infix-op-entry '<>)
-    ,(infix-op-entry '<)
-    ,(infix-op-entry '<=)
-    ,(infix-op-entry '>)
-    ,(infix-op-entry '>=)))
+    ,(infix-op-entry 'and " AND ")
+    ,(infix-op-entry 'or  " OR ")
+    ,(infix-op-entry 'like " LIKE " #:arity 2)
+    ,(infix-op-entry 'not-like " NOT LIKE " #:arity 2)
+    ;; Treat any other symbol composed of just the following
+    ;; characters as a binary operator.
+    [#rx"^[~!@#$%^&*-_=+|<>?/]+$"
+     ,(lambda (sym) (list 2 (infix-op (format " ~a " sym))))]
+    ))
+
+(define (op-entry op)
+  (let loop ([ops standard-ops])
+    (cond [(null? ops) #f]
+          [(symbol? (caar ops))
+           (cond [(eq? op (caar ops))
+                  (car ops)]
+                 [else (loop (cdr ops))])]
+          [(regexp? (caar ops))
+           (cond [(regexp-match? (caar ops) (symbol->string op))
+                  (cons op ((cadar ops)))]
+                 [else (loop (cdr ops))])])))
 
 (define (op-formatter op-name)
-  (cond [(assoc op-name standard-ops) => caddr]
+  (cond [(op-entry op-name) => caddr]
         [else #f]))
 
 (define (check-arity op-name n-args)
-  (cond [(assoc op-name standard-ops)
+  (cond [(op-entry op-name)
          => (lambda (entry) (arity-includes? (cadr entry) n-args))]
         [else #t]))
 

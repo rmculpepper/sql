@@ -76,21 +76,47 @@ operator.
              (operator-id scalar-expr ...)]
 ]
 
-@racketblock[
-table.name
-(string-append lastname ", " firstname)
-(and (> x 5) (< x 20))
-]
+The following are examples of scalar expressions:
 
-@;{ FIXME: need table of functions and operator aliases }
+@racketblock[
+table.column
+42
+"Salutations"
+(log (- 1 p))
+(and (> x 10) (< x 55))
+(coalesce x y z)
+]
 
 As an abuse of syntax, types are also written as ``scalar
 expressions'', for example in @tt{CAST} expressions:
 
 @racketblock[
-(cast "2015-03-15" "date") (code:comment "equivalent to CAST('2015-03-15' AS DATE)")
-(cast "123" (numeric 5 0)) (code:comment "equivalent to CAST('123' AS NUMERIC(5, 0))")
+(cast "2015-03-15" DATE)    (code:comment "CAST('2015-03-15' AS DATE)")
+(cast "123" (NUMERIC 5 0))  (code:comment "CAST('123' AS NUMERIC(5, 0))")
 ]
+
+Aside from @tt{CAST}, a few other standard SQL functions using
+nonstandard function syntax are supported:
+
+@racketblock[
+(is-null table.column)      (code:comment "table.column IS NULL")
+(like ph_num "555-____")    (code:comment "ph_num LIKE '555-____'")
+(extract YEAR dob)          (code:comment "EXTRACT(YEAR FROM dob)")
+]
+
+And @lit{string-append} is provided as an alias for @tt{||}, the SQL
+concatenation operator, which reads as the empty symbol.
+
+@racketblock[
+(string-append last ", " first) (code:comment "last || first")
+]
+
+Any symbol consisting of only the following characters is considered a
+binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
+
+@;{ FIXME: need table of functions and operator aliases }
+
+
 
 @bold{Table References}
 
