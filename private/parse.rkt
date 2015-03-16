@@ -215,7 +215,12 @@
 
 (define-syntax-class TableExpr
   #:attributes (ast)
-  #:datum-literals (cross-join values values*)
+  #:datum-literals (TableExpr: TableExpr:INJECT cross-join values values*)
+  (pattern (TableExpr: ~! (unquote e))
+           #:declare e (expr/c #'table-expr?)
+           #:attr ast (list 'unquote #'e.c))
+  (pattern (TableExpr:INJECT ~! inj:StringOrUnquote)
+           #:attr ast (table-expr:inject ($ inj.ast)))
   (pattern (cross-join t1:TableRef t2:TableRef)
            #:attr ast (table-expr:cross-join ($ t1.ast) ($ t2.ast)))
   (pattern (j:Join t1:TableRef t2:TableRef :join-on-clause)

@@ -122,10 +122,13 @@
 ;; ----------------------------------------
 
 (define (emit-table-expr t)
-  (cond [(join-table-expr? t)
-         (emit-join-table-expr t)]
-        [(nonjoin-table-expr? t)
-         (emit-nonjoin-table-expr t)]))
+  (match t
+    [(table-expr:inject sql)
+     sql]
+    [(? join-table-expr?)
+     (emit-join-table-expr t)]
+    [(? nonjoin-table-expr?)
+     (emit-nonjoin-table-expr t)]))
 
 (define (emit-join-table-expr t)
   (match t
