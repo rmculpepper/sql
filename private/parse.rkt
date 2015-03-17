@@ -147,19 +147,32 @@
 ;; TODO: want to also support following syntax:
 ;;   (insert table ([column expr] ...))
 
+;; (insert #:into table #:set [column expr] ...)
+;; (insert #:into table #:columns column ... #:values expr ...)
+;; (insert #:into table #:columns column ... #:from TableExpr)
+
 (define-syntax-class InsertInner
   #:description #f
   #:attributes (ast)
-  (pattern (_ (~or (~once :InsertTarget)
-                   (~once src:InsertSource))
-              ...)
-           #:attr ast (statement:insert ($ table) ($ columns) ($ src.ast))))
+  (pattern (_ target:InsertTarget
+              assign:AssignClause)
+           #:attr ast (statement:insert
+                       ($ target.ast)
+                       (map update:assign-column ($ assign.ast))
+                       (table-expr:values
+                        (list (map update:assign-expr ($ assign.ast))))))
+  (pattern (_ target:InsertTarget
+              (~optional cols:InsertColumns)
+              src:InsertSource)
+           #:attr ast (statement:insert ($ target.ast) ($ cols.ast) ($ src.ast))))
 
 (define-splicing-syntax-class InsertTarget
-  #:attributes (table columns)
-  (pattern (~seq #:into t:Name (~optional (~seq (c:Ident ...))))
-           #:attr table ($ t.ast)
-           #:attr columns ($ c.ast)))
+  #:attributes (ast)
+  (pattern (~seq #:into :Name)))
+
+(define-splicing-syntax-class InsertColumns
+  #:attributes ([ast 1])
+  (pattern (~seq #:columns :Ident ...)))
 
 (define-splicing-syntax-class InsertSource
   #:attributes (ast)
@@ -174,17 +187,17 @@
   #:description #f
   #:attributes (ast)
   (pattern (_ table:Name
-              (~or (~once assign:UpdateAssignClause)
+              (~or (~once assign:AssignClause)
                    (~optional where:WhereClause))
               ...)
            #:attr ast (statement:update ($ table.ast) ($ assign.ast)
                                    (or ($ where.ast) null))))
 
-(define-splicing-syntax-class UpdateAssignClause
+(define-splicing-syntax-class AssignClause
   #:attributes ([ast 1])
-  (pattern (~seq #:set :UpdateAssignment ...)))
+  (pattern (~seq #:set :Assignment ...)))
 
-(define-syntax-class UpdateAssignment
+(define-syntax-class Assignment
   #:attributes (ast)
   (pattern [c:Ident e:ScalarExpr]
            #:attr ast (update:assign ($ c.ast) ($ e.ast))))
