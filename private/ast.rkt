@@ -158,9 +158,11 @@
 ;; - String
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (U String (list 'unquote Syntax)))
+;; * (scalar:unquote Syntax)  -- to be converted to placeholder
 (struct scalar:app (op args) #:prefab)
 (struct scalar:placeholder () #:prefab)
 (struct scalar:inject (s) #:prefab)
+(struct scalar:unquote (expr) #:prefab)
 
 (define (scalar-expr? x)
   (or (scalar:app? x)
@@ -225,7 +227,7 @@
                  [else (loop (cdr ops))])]
           [(regexp? (caar ops))
            (cond [(regexp-match? (caar ops) (symbol->string op))
-                  (cons op ((cadar ops) (caar ops)))]
+                  (cons op ((cadar ops) op))]
                  [else (loop (cdr ops))])])))
 
 (define (op-formatter op-name)

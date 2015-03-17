@@ -289,12 +289,14 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ?)
-  (pattern (ScalarExpr: u)
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote)
+  (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
+  (pattern (unquote ~! e:expr)
+           #:attr ast (scalar:unquote #'e))
   (pattern n:exact-integer
            #:attr ast (syntax-e #'n))
   (pattern s:str
