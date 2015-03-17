@@ -24,16 +24,16 @@
 ;; ----------------------------------------
 
 (define (emit-statement s)
-  (cond [(stmt:select? s) (emit-select s)]
-        [(stmt:insert? s) (emit-insert s)]
-        [(stmt:update? s) (emit-update s)]
-        [(stmt:delete? s) (emit-delete s)]))
+  (cond [(statement:select? s) (emit-select s)]
+        [(statement:insert? s) (emit-insert s)]
+        [(statement:update? s) (emit-update s)]
+        [(statement:delete? s) (emit-delete s)]))
 
 ;; ----------------------------------------
 
 (define (emit-select s)
   (match s
-    [(stmt:select vals froms wheres groupby having ext)
+    [(statement:select vals froms wheres groupby having ext)
      (J "SELECT "
         (J-join (map emit-select-item vals) ", ")
         (if (pair? froms)
@@ -82,7 +82,7 @@
 
 (define (emit-insert i)
   (match i
-    [(stmt:insert table columns source)
+    [(statement:insert table columns source)
      (J "INSERT INTO "
         (emit-name table)
         (if columns
@@ -94,7 +94,7 @@
 
 (define (emit-update u)
   (match u
-    [(stmt:update table assign where)
+    [(statement:update table assign where)
      (J "UPDATE "
         (emit-name table)
         " SET "
@@ -112,7 +112,7 @@
 
 (define (emit-delete d)
   (match d
-    [(stmt:delete table where)
+    [(statement:delete table where)
      (J "DELETE FROM "
         (emit-name table)
         (if (pair? where)

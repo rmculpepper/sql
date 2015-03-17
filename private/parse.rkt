@@ -73,7 +73,7 @@
            #:fail-when (and (pair? ($ having.ast))
                             (not (pair? ($ groupby.columns))))
                        "#:having clause with empty #:group-by"
-           #:attr ast (stmt:select (append ($ vs.ast) (or ($ sel.ast) null))
+           #:attr ast (statement:select (append ($ vs.ast) (or ($ sel.ast) null))
                                    (or ($ from.ast) null)
                                    (or ($ where.ast) null)
                                    (or ($ groupby.columns) null)
@@ -153,7 +153,7 @@
   (pattern (_ (~or (~once :InsertTarget)
                    (~once src:InsertSource))
               ...)
-           #:attr ast (stmt:insert ($ table) ($ columns) ($ src.ast))))
+           #:attr ast (statement:insert ($ table) ($ columns) ($ src.ast))))
 
 (define-splicing-syntax-class InsertTarget
   #:attributes (table columns)
@@ -177,7 +177,7 @@
               (~or (~once assign:UpdateAssignClause)
                    (~optional where:WhereClause))
               ...)
-           #:attr ast (stmt:update ($ table.ast) ($ assign.ast)
+           #:attr ast (statement:update ($ table.ast) ($ assign.ast)
                                    (or ($ where.ast) null))))
 
 (define-splicing-syntax-class UpdateAssignClause
@@ -198,7 +198,7 @@
   (pattern (_ (~or (~once :DeleteFromClause)
                    (~optional where:WhereClause))
               ...)
-           #:attr ast (stmt:delete ($ table) (or ($ where.ast) null))))
+           #:attr ast (statement:delete ($ table) (or ($ where.ast) null))))
 
 (define-splicing-syntax-class DeleteFromClause
   #:attributes (table)

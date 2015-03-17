@@ -39,8 +39,10 @@
 ;; - (NT:INJECT String)
 ;; - (NT:INJECT ,expr)
 ;; For those NTs, the corresponding AST type contains the following variants:
-;; - (list 'unquote Syntax)                        -- represents case (1)
-;; - (NT:inject (U String (list 'unquote Syntax))) -- represents case (2) and (3)
+;; - (list 'unquote Syntax)               -- represents case (1)
+;; - (NT:inject String)                   -- represents case (2)
+;; - (NT:inject (list 'unquote Syntax)))  -- represents case (3)
+;; Only the second occurs at run-time, though.
 
 ;; Note for ScalarExpr: the three following forms are distinct:
 ;; - (select ,expr)                      -- TODO: turns into placeholder
@@ -50,12 +52,21 @@
 ;; implemented yet!).
 
 ;; ----------------------------------------
+;; Statements
+
+(define (statement? x)
+  (or (statement:select? x)
+      (statement:insert? x)
+      (statement:update? x)
+      (statement:delete? x)))
+
+;; ----------------------------------------
 ;; Select
 
 ;; A Select is 
-;; (stmt:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr)
-;;              (Listof Name) (Listof ScalarExpr) (U SelectExtension #f))
-(struct stmt:select (vals from where groupby having ext) #:prefab)
+;; (statement:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr)
+;;                   (Listof Name) (Listof ScalarExpr) (U SelectExtension #f))
+(struct statement:select (vals from where groupby having ext) #:prefab)
 
 ;; A SelectItem is one of
 ;; - (select-item:as ScalarExpr Ident)
@@ -74,14 +85,14 @@
 ;; ----------------------------------------
 ;; Insert
 
-;; An Insert is (stmt:insert Name (U (Listof Ident) #f) TableExpr)
-(struct stmt:insert (table columns source) #:prefab)
+;; An Insert is (statement:insert Name (U (Listof Ident) #f) TableExpr)
+(struct statement:insert (table columns source) #:prefab)
 
 ;; ----------------------------------------
 ;; Update
 
-;; An Update is (stmt:update Name (Listof UpdateAssign) (Listof ScalarExpr))
-(struct stmt:update (table assign where) #:prefab)
+;; An Update is (statement:update Name (Listof UpdateAssign) (Listof ScalarExpr))
+(struct statement:update (table assign where) #:prefab)
 
 ;; An UpdateAssign is (update:assign Ident ScalarExpr)
 (struct update:assign (column expr) #:prefab)
@@ -89,8 +100,8 @@
 ;; ----------------------------------------
 ;; Delete
 
-;; A Delete is (stmt:delete Name (Listof ScalarExpr))
-(struct stmt:delete (table where) #:prefab)
+;; A Delete is (statement:delete Name (Listof ScalarExpr))
+(struct statement:delete (table where) #:prefab)
 
 ;; ----------------------------------------
 ;; Table References
