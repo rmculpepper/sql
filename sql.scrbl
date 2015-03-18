@@ -108,14 +108,13 @@ And @lit{string-append} is provided as an alias for @tt{||}, the SQL
 concatenation operator, which reads as the empty symbol.
 
 @racketblock[
-(string-append last ", " first) (code:comment "last || first")
+(string-append last ", " first) (code:comment "last || ', ' || first")
 ]
 
 Any symbol consisting of only the following characters is considered a
 binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
 
 @;{ FIXME: need table of functions and operator aliases }
-
 
 
 @bold{Table References}
@@ -169,32 +168,21 @@ binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
 
 ]
 
+@; ============================================================
+
+@section[#:tag "statements"]{Statements}
 
 @defform*[[(select select-item ... select-clause ...)
            (select select-clause ...)]
           #:grammar
-          ([select-clause select-items-clause
-                          select-from-clause
-                          select-where-clause
-                          select-group-by-clause
-                          select-having-clause
-                          select-order-clause
-                          select-limit-clause]
-           [select-values-clause
-            (code:line #:values select-item ...)]
-           [select-from-clause
-            (code:line #:from table-reference ...)]
-           [select-where-clause
-            (code:line #:where condition-scalar-expr ...)]
-           [select-group-by-clause
-            (code:line #:group-by column-ident ...)]
-           [select-having-clause
-            (code:line #:having condition-scalar-expr ...)]
-           [select-order-clause
-            (code:line #:order-by select-order-item ...)]
-           [select-limit-clause
-            (code:line #:limit scalar-expr)]
-           [select-offset-clause
+          ([select-clause
+            (code:line #:values select-item ...)
+            (code:line #:from table-reference ...)
+            (code:line #:where condition-scalar-expr ...)
+            (code:line #:group-by column-ident ...)
+            (code:line #:having condition-scalar-expr ...)
+            (code:line #:order-by select-order-item ...)
+            (code:line #:limit scalar-expr)
             (code:line #:offset scalar-expr)]
            [select-item scalar-expr
                         (@#,lit{as} scalar-expr ident)]
@@ -205,14 +193,14 @@ binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
 
 }
 
-@defform[(insert insert-target-clause insert-source-clause)
-         #:grammar
-         ([insert-target-clause
-           (code:line #:into table-name)
-           (code:line #:into table-name (column-ident ...))]
-          [insert-source-clause
-           (code:line #:values sclar-expr ...)
-           (code:line #:from table-expr)])]{
+@defform*[[(insert #:into table-name insert-assign-clause)
+           (insert #:into table-name maybe-columns-clause #:from table-expr)]
+          #:grammar
+          ([insert-assign-clause
+            (code:line #:set [column-ident scalar-expr] ...)]
+           [maybe-columns-clause
+            (code:line)
+            (code:line #:columns (column-ident ...))])]{
 
 }
 
@@ -235,3 +223,45 @@ binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
            (code:line #:where condition-scalar-expr ...)])]{
 
 }
+
+@; ============================================================
+
+@section[#:tag "implicit"]{Implicit Placeholders}
+
+An @lit{unquote} form can be used in any scalar expression context. It
+is equivalent to inserting a placeholder and providing the expression
+as a query parameter.
+
+Note: Due to limitations in the underlying database library,
+@lit{unquote} parameters and ordinary placeholders cannot be mixed in
+the same statement.
+
+@racketgrammar*[
+
+[scalar-expr ....
+             (@#,lit{unquote} racket-expr)]
+
+]
+
+Example:
+
+@racketblock[
+(select x #:from t #:where (= y ,y-param))
+]
+
+@section[#:tag "escapes"]{Dynamic Statement Composition and SQL Injection}
+
+@racketgrammar*[
+
+[scalar-expr ....
+             (@#,lit{ScalarExpr:AST} (@#,lit{unquote} ast-racket-expr))
+             (@#,lit{ScalarExpr:INJECT} (@#,lit{unquote} string-racket-expr))]
+
+[table-expr ....
+             (@#,lit{TableExpr:AST} (@#,lit{unquote} ast-racket-expr))
+             (@#,lit{TableExpr:INJECT} (@#,lit{unquote} string-racket-expr))]
+
+[table-ref ....
+           (@#,lit{TableRef:AST} (@#,lit{unquote} ast-racket-expr))
+           (@#,lit{TableRef:INJECT} (@#,lit{unquote} string-racket-expr))]
+]
