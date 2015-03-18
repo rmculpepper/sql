@@ -4,10 +4,40 @@
                      "ast.rkt"
                      "parse.rkt")
          racket/class
+         racket/match
          db/base
          "emit.rkt")
 (provide (except-out (all-defined-out)
                      define-ast-macros))
+
+;; ============================================================
+;; Determine emit-sql based on db connection
+
+(define (base-get-emit-sql obj)
+  (cond [(connection? obj)
+         (base-get-emit-sql (connection-dbsystem obj))]
+        [(dbsystem? obj)
+         (base-get-emit-sql (dbsystem-name obj))]
+        [else
+         (case obj
+           [(postgresql) postgresql-emit-sql]
+           [else standard-emit-sql])]))
+
+(define current-get-emit-sql (make-parameter base-get-emit-sql))
+
+(define (get-emit-sql c) ((current-get-emit-sql) c))
+
+;; ----------------------------------------
+;; Convenience functions
+
+(define (statement->string s [obj #f])
+  (send (get-emit-sql obj) statement->string s))
+(define (table-ref->string t [obj #f])
+  (send (get-emit-sql obj) table-ref->string t))
+(define (table-expr->string t [obj #f])
+  (send (get-emit-sql obj) table-expr->string t))
+(define (scalar-expr->string e [obj #f])
+  (send (get-emit-sql obj) scalar-expr->string e))
 
 ;; ============================================================
 ;; Helpers
@@ -52,20 +82,25 @@
            ;; Use #'here lexical context for embedded AST unquotes
            (with-syntax ([ast* (datum->syntax #'here ast*)]
                          [(unquoted-expr ...) (reverse r-unquoted-exprs)])
-             #'(sql-statement (statement->string (quasiquote ast*))
+             #'(sql-statement (quasiquote ast*)
                               (list unquoted-expr ...)))]
           [else
            ;; Use #'here lexical context for embedded AST unquotes
            (with-syntax ([ast* (datum->syntax #'here ast*)])
-             #'(statement->string (quasiquote ast*)))])))
+             #'(sql-statement (quasiquote ast*) null))])))
 
-(struct sql-statement (sql args)
+(struct sql-statement (ast args)
         #:transparent ;; FIXME: remove
         #:property prop:statement
         (lambda (self c)
-          (define sql (sql-statement-sql self))
+          (define sql (sql-statement-sql self c))
           (define pst (send c prepare 'sql-statement sql #t))
           (send pst bind 'sql-statement (sql-statement-args self))))
+
+(define (sql-statement-sql s [obj #f])
+  (match s
+    [(sql-statement ast _)
+     (statement->string ast obj)]))
 
 ;; ============================================================
 

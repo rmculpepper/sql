@@ -2,6 +2,7 @@
 
 #lang racket/base
 (require racket/string
+         racket/class
          racket/list
          (rename-in racket/match [match-define defmatch])
          racket/format
@@ -9,252 +10,324 @@
          "jumble.rkt")
 (provide (all-defined-out))
 
-;; ============================================================
-;; Emit according to concrete syntax for minimal parenthesization.
+;; ----------------------------------------
 
-(define (statement->string s)
-  (jumble->string (emit-statement s)))
-(define (table-ref->string t)
-  (jumble->string (emit-table-ref t)))
-(define (table-expr->string t)
-  (jumble->string (emit-table-expr t)))
-(define (scalar-expr->string e)
-  (jumble->string (emit-scalar-expr e)))
+;; So we can use map with method names
+(define-syntax-rule (map f xs) (for/list ([x (in-list xs)]) (f x)))
 
 ;; ----------------------------------------
 
-(define (emit-statement s)
-  (cond [(statement:select? s) (emit-select s)]
-        [(statement:insert? s) (emit-insert s)]
-        [(statement:update? s) (emit-update s)]
-        [(statement:delete? s) (emit-delete s)]))
+(define emit-sql%
+  (class object%
+    (super-new)
 
-;; ----------------------------------------
+    ;; ----------------------------------------
+    ;; Entry points (to set up state)
 
-(define (emit-select s)
-  (match s
-    [(statement:select vals froms wheres groupby having ext)
-     (J "SELECT "
-        (J-join (map emit-select-item vals) ", ")
-        (if (pair? froms)
-            (J " FROM " (J-join (map emit-table-ref froms) ", "))
-            "")
-        (if (pair? wheres)
-            (J " WHERE " (J-join (map emit-scalar-expr wheres) " AND "))
-            "")
-        (if (pair? groupby)
-            (J " GROUP BY " (J-join (map emit-name groupby) ", "))
-            "")
-        (if (pair? having)
-            (J " HAVING " (J-join (map emit-scalar-expr having) " AND "))
-            "")
-        (match ext
-          [(select:extension order limit offset)
-           (J (if order
-                  (J " ORDER BY " (J-join (map emit-select-order order) ", "))
-                  "")
-              (if limit
-                  (J " LIMIT " (emit-scalar-expr limit))
-                  "")
-              (if offset
-                  (J " OFFSET " (emit-scalar-expr offset))
-                  ""))]
-          [#f ""]))]))
+    (define/public (call-as-entry f)
+      (f))
 
-(define (emit-select-item si)
-  (match si
-    [(select-item:as expr var)
-     (J (emit-scalar-expr expr) " AS " (emit-ident var))]
-    [(select-item:all)
-     "*"]
-    [_ (emit-scalar-expr si)]))
+    ;; ----------------------------------------
+    ;; Convenience entry points
 
-(define (emit-select-order so)
-  (match so
-    [(select:order column asc/desc)
-     (J (emit-name column)
-        (case asc/desc
-          [(asc) " ASC"]
-          [(desc) " DESC"]
-          [(#f) ""]))]))
+    (define/public (statement->string s)
+      (jumble->string (call-as-entry (lambda () (emit-statement s)))))
+    (define/public (table-ref->string t)
+      (jumble->string (call-as-entry (lambda () (emit-table-ref t)))))
+    (define/public (table-expr->string t)
+      (jumble->string (call-as-entry (lambda () (emit-table-expr t)))))
+    (define/public (scalar-expr->string e)
+      (jumble->string (call-as-entry (lambda () (emit-scalar-expr e)))))
 
-;; ----------------------------------------
+    ;; ----------------------------------------
+    ;; Statements
 
-(define (emit-insert i)
-  (match i
-    [(statement:insert table columns source)
-     (J "INSERT INTO "
-        (emit-name table)
-        (if columns
-            (J " (" (J-join (map emit-ident columns) ", ") ") ")
-            " ")
-        (emit-table-expr source))]))
+    (define/public (emit-statement s)
+      (match s
+        [(? statement:select?) (emit-select s)]
+        [(? statement:insert?) (emit-insert s)]
+        [(? statement:update?) (emit-update s)]
+        [(? statement:delete?) (emit-delete s)]))
 
-;; ----------------------------------------
+    ;; ----------------------------------------
+    ;; Select
 
-(define (emit-update u)
-  (match u
-    [(statement:update table assign where)
-     (J "UPDATE "
-        (emit-name table)
-        " SET "
-        (J-join (map emit-update-assign assign) ", ")
-        (if (pair? where)
-            (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
-            ""))]))
+    (define/public (emit-select s)
+      (match s
+        [(statement:select vals from where groupby having ext)
+         (J "SELECT "
+            (J-join (map emit-select-item vals) ", ")
+            (emit-select-from from)
+            (emit-where where)
+            (emit-select-groupby groupby)
+            (emit-select-having having)
+            (emit-select-extension ext))]))
 
-(define (emit-update-assign a)
-  (match a
-    [(update:assign column expr)
-     (J (emit-ident column) " = " (emit-scalar-expr expr))]))
+    (define/public (emit-select-item si)
+      (match si
+        [(select-item:as expr var)
+         (J (emit-scalar-expr expr) " AS " (emit-ident var))]
+        [(select-item:all)
+         "*"]
+        [_ (emit-scalar-expr si)]))
 
-;; ----------------------------------------
+    (define/public (emit-select-order so)
+      (match so
+        [(select:order column asc/desc)
+         (J (emit-name column)
+            (case asc/desc
+              [(asc) " ASC"]
+              [(desc) " DESC"]
+              [(#f) ""]))]))
 
-(define (emit-delete d)
-  (match d
-    [(statement:delete table where)
-     (J "DELETE FROM "
-        (emit-name table)
-        (if (pair? where)
-            (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
-            ""))]))
+    (define/public (emit-select-from from)
+      (if (pair? from)
+          (J " FROM " (J-join (map emit-table-ref from) ", "))
+          ""))
 
-;; ----------------------------------------
+    (define/public (emit-where where)
+      (if (pair? where)
+          (J " WHERE " (J-join (map emit-scalar-expr where) " AND "))
+          ""))
 
-(define (emit-table-expr t)
-  (match t
-    [(table-expr:inject sql)
-     sql]
-    [(? join-table-expr?)
-     (emit-join-table-expr t)]
-    [(? nonjoin-table-expr?)
-     (emit-nonjoin-table-expr t)]))
+    (define/public (emit-select-groupby groupby)
+      (if (pair? groupby)
+          (J " GROUP BY " (J-join (map emit-name groupby) ", "))
+          ""))
 
-(define (emit-join-table-expr t)
-  (match t
-    [(table-expr:cross-join t1 t2)
-     (J (emit-table-ref t1)
-        " CROSS JOIN "
-        (emit-table-ref t2))]
-    [(table-expr:join type t1 t2 on)
-     (J (emit-table-ref t1)
-        (match on
-          [`(natural) " NATURAL"]
-          [_""])
-        (case type
-          [(inner-join) " INNER JOIN "]
-          [(left-join)  " LEFT OUTER JOIN "]
-          [(right-join) " RIGHT OUTER JOIN "]
-          [(full-join)  " FULL OUTER JOIN "]
-          [(union-join) " UNION JOIN "])
-        (emit-table-ref t2)
-        (match on
-          [`(using ,columns)
-           (J " USING (" (J-join (map emit-ident columns) ", ") ")")]
-          [`(on ,condition)
-           (J " ON " (emit-scalar-expr condition))]
-          [_ ""]))]))
+    (define/public (emit-select-having having)
+      (if (pair? having)
+          (J " HAVING " (J-join (map emit-scalar-expr having) " AND "))
+          ""))
 
-(define (emit-table-ref t)
-  (match t
-    [(table-ref:inject sql)
-     sql]
-    [(table-ref:name table-name)
-     (emit-name table-name)]
-    [(table-ref:as (table-ref:name table-name) rangevar)
-     (J (emit-name table-name) " AS " (emit-ident rangevar))]
-    [(table-ref:as table-expr rangevar)
-     (J "(" (emit-table-expr table-expr) ") AS " (emit-ident rangevar))]
-    [(? join-table-expr?)
-     (emit-join-table-expr t)]
-    [_
-     (eprintf "WARNING: may be illegal syntax\n")
-     (J "(" (emit-table-expr t) ")")]))
+    (define/public (emit-select-extension ext)
+      (match ext
+        [(select:extension order limit offset)
+         (J (if order
+                (J " ORDER BY " (J-join (map emit-select-order order) ", "))
+                "")
+            (if limit
+                (J " LIMIT " (emit-scalar-expr limit))
+                "")
+            (if offset
+                (J " OFFSET " (emit-scalar-expr offset))
+                ""))]
+        [#f ""]))
 
-(define (emit-nonjoin-table-expr t)
-  (match t
-    [(table-expr:set-op (and type (or 'union 'except)) t1 t2 opt corr)
-     (J (emit-table-expr t1)
-        (emit-set-op-parts type opt corr)
-        (emit-table-term t2))]
-    [_ (emit-nonjoin-table-term t)]))
+    ;; ----------------------------------------
 
-(define (emit-table-term t)
-  (cond [(join-table-expr? t)
+    (define/public (emit-insert i)
+      (match i
+        [(statement:insert table columns source)
+         (J "INSERT INTO "
+            (emit-name table)
+            (emit-insert-columns columns)
+            (emit-table-expr source))]))
+
+    (define/public (emit-insert-columns columns)
+      (if columns
+          (J " (" (J-join (map emit-ident columns) ", ") ") ")
+          " "))
+
+    ;; ----------------------------------------
+
+    (define/public (emit-update u)
+      (match u
+        [(statement:update table assign where)
+         (J "UPDATE "
+            (emit-name table)
+            " SET "
+            (J-join (map emit-update-assign assign) ", ")
+            (emit-where where))]))
+
+    (define/public (emit-update-assign a)
+      (match a
+        [(update:assign column expr)
+         (J (emit-ident column) " = " (emit-scalar-expr expr))]))
+
+    ;; ----------------------------------------
+
+    (define/public (emit-delete d)
+      (match d
+        [(statement:delete table where)
+         (J "DELETE FROM "
+            (emit-name table)
+            (emit-where where))]))
+
+    ;; ----------------------------------------
+
+    (define/public (emit-table-ref t)
+      (match t
+        [(table-ref:inject sql)
+         sql]
+        [(table-ref:name table-name)
+         (emit-name table-name)]
+        [(table-ref:as (table-ref:name table-name) rangevar)
+         (J (emit-name table-name) " AS " (emit-ident rangevar))]
+        [(table-ref:as table-expr rangevar)
+         (J "(" (emit-table-expr table-expr) ") AS " (emit-ident rangevar))]
+        [(? join-table-expr?)
          (emit-join-table-expr t)]
-        [else
-         (emit-nonjoin-table-term t)]))
+        [_
+         ;; (eprintf "WARNING: may be illegal syntax\n")
+         (J "(" (emit-table-expr t) ")")]))
 
-(define (emit-nonjoin-table-term t)
-  (match t
-    [(table-expr:set-op (and type 'intersect) t1 t2 opt corr)
-     (J (emit-table-term t1)
-        (emit-set-op-parts type opt corr)
-        (emit-table-primary t2))]
-    [_ (emit-nonjoin-table-primary t)]))
+    ;; ----------------------------------------
 
-(define (emit-table-primary t)
-  (cond [(join-table-expr? t)
+    ;; Emit according to concrete syntax for minimal parenthesization.
+
+    (define/public (emit-table-expr t)
+      (match t
+        [(table-expr:inject sql)
+         sql]
+        [(? join-table-expr?)
          (emit-join-table-expr t)]
-        [else
-         (emit-nonjoin-table-primary t)]))
+        [(? nonjoin-table-expr?)
+         (emit-nonjoin-table-expr t)]))
 
-(define (emit-nonjoin-table-primary t)
-  (match t
-    ;; [(table-expr:table ...) ...] ;; "TABLE table-name"
-    [(table-expr:values rows)
-     (J "VALUES "
-        (J-join
-         (for/list ([row rows])
-           (J "(" (J-join (map emit-scalar-expr row) ", ") ")"))
-         ", "))]
-    [(table-expr:select select)
-     (emit-select select)]
-    [_ (J "(" (emit-table-expr t) ")")]))
+    (define/public (emit-join-table-expr t)
+      (match t
+        [(table-expr:cross-join t1 t2)
+         (J (emit-table-ref t1)
+            " CROSS JOIN "
+            (emit-table-ref t2))]
+        [(table-expr:join type t1 t2 on)
+         (J (emit-table-ref t1)
+            (emit-join-on/part1 on)
+            (emit-join-type type)
+            (emit-table-ref t2)
+            (emit-join-on/part2 on))]))
 
-(define (emit-set-op-parts type opt corr)
-  (J (case type
-       [(union) " UNION "]
-       [(except) " EXCEPT "]
-       [(intersect) " INTERSECT "])
-     (case opt
-       [(all) "ALL "]
-       [else ""])
-     (match corr
-       [`#f ""]
-       [`#t "CORRESPONDING "]
-       [(list columns ...)
-        (J "CORRESPONDING (" (J-join (map emit-ident columns) ", ") ") ")])))
+    (define/public (emit-join-on/part1 on)
+      (match on
+        [`(natural) " NATURAL"]
+        [_ ""]))
 
-;; ----------------------------------------
+    (define/public (emit-join-type type)
+      (match type
+        ['inner-join " INNER JOIN "]
+        ['left-join  " LEFT OUTER JOIN "]
+        ['right-join " RIGHT OUTER JOIN "]
+        ['full-join  " FULL OUTER JOIN "]
+        ['union-join " UNION JOIN "]))
 
-(define (emit-scalar-expr e)
-  (match e
-    [(scalar:inject sql)
-     sql]
-    [(scalar:app op args)
-     (define formatter (or (op-formatter op) (fun-op (emit-name op))))
-     (apply formatter (map emit-scalar-expr args))]
-    [(scalar:placeholder)
-     "?"]
-    [(or (? symbol?) (? qname?))
-     (emit-name e)]
-    [(? string?)
-     (J "'" (regexp-replace* #rx"'" e "''") "'")]
-    [(? exact-integer?)
-     (number->string e)]))
+    (define/public (emit-join-on/part2 on)
+      (match on
+        [`(using ,columns)
+         (J " USING (" (J-join (map emit-ident columns) ", ") ")")]
+        [`(on ,condition)
+         (J " ON " (emit-scalar-expr condition))]
+        [_ ""]))
 
-;; ----------------------------------------
+    ;; ----------------------------------------
 
-(define (emit-name n)
-  (match n
-    [(qname qual id)
-     (J (emit-name qual) "." (emit-ident id))]
-    [_ (emit-ident n)]))
+    (define/public (emit-nonjoin-table-expr t)
+      (match t
+        [(table-expr:set-op (and type (or 'union 'except)) t1 t2 opt corr)
+         (J (emit-table-expr t1)
+            (emit-set-op-parts type opt corr)
+            (emit-table-term t2))]
+        [_ (emit-nonjoin-table-term t)]))
 
-(define (emit-ident id)
-  (match id
-    [(id:quoted (? string? s))
-     (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
-    [(? symbol? s)
-     (symbol->string s)]))
+    (define/public (emit-table-term t)
+      (cond [(join-table-expr? t)
+             (emit-join-table-expr t)]
+            [else
+             (emit-nonjoin-table-term t)]))
+
+    (define/public (emit-nonjoin-table-term t)
+      (match t
+        [(table-expr:set-op (and type 'intersect) t1 t2 opt corr)
+         (J (emit-table-term t1)
+            (emit-set-op-parts type opt corr)
+            (emit-table-primary t2))]
+        [_ (emit-nonjoin-table-primary t)]))
+
+    (define/public (emit-table-primary t)
+      (cond [(join-table-expr? t)
+             (emit-join-table-expr t)]
+            [else
+             (emit-nonjoin-table-primary t)]))
+
+    (define/public (emit-nonjoin-table-primary t)
+      (match t
+        ;; [(table-expr:table ...) ...] ;; "TABLE table-name"
+        [(table-expr:values rows)
+         (J "VALUES "
+            (J-join
+             (for/list ([row rows])
+               (J "(" (J-join (map emit-scalar-expr row) ", ") ")"))
+             ", "))]
+        [(table-expr:select select)
+         (emit-select select)]
+        [_ (J "(" (emit-table-expr t) ")")]))
+
+    (define/public (emit-set-op-parts type opt corr)
+      (J (case type
+           [(union) " UNION "]
+           [(except) " EXCEPT "]
+           [(intersect) " INTERSECT "])
+         (case opt
+           [(all) "ALL "]
+           [else ""])
+         (match corr
+           [`#f ""]
+           [`#t "CORRESPONDING "]
+           [(list columns ...)
+            (J "CORRESPONDING (" (J-join (map emit-ident columns) ", ") ") ")])))
+
+    ;; ----------------------------------------
+
+    (define/public (emit-scalar-expr e)
+      (match e
+        [(scalar:inject sql)
+         sql]
+        [(scalar:app op args)
+         (define formatter (or (op-formatter op) (fun-op (emit-name op))))
+         (apply formatter (map emit-scalar-expr args))]
+        [(scalar:placeholder)
+         "?"]
+        [(or (? symbol?) (? qname?))
+         (emit-name e)]
+        [(? string?)
+         (J "'" (regexp-replace* #rx"'" e "''") "'")]
+        [(? exact-integer?)
+         (number->string e)]))
+
+    ;; ----------------------------------------
+
+    (define/public (emit-name n)
+      (match n
+        [(qname qual id)
+         (J (emit-name qual) "." (emit-ident id))]
+        [_ (emit-ident n)]))
+
+    (define/public (emit-ident id)
+      (match id
+        [(id:quoted (? string? s))
+         (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
+        [(? symbol? s)
+         (symbol->string s)]))
+
+    ))
+
+(define next-dollar-placeholder (make-parameter 1))
+
+(define (dollar-placeholder-mixin %)
+  (class %
+    (super-new)
+
+    (define/override (call-as-entry f)
+      (parameterize ((next-dollar-placeholder 1))
+        (super call-as-entry f)))
+
+    (define/override (emit-scalar-expr se)
+      (match se
+        [(scalar:placeholder)
+         (begin0 (format "$~s" (next-dollar-placeholder))
+           (next-dollar-placeholder (add1 (next-dollar-placeholder))))]
+        [_ (super emit-scalar-expr se)]))
+    ))
+
+(define standard-emit-sql (new emit-sql%))
+(define postgresql-emit-sql (new (dollar-placeholder-mixin emit-sql%)))

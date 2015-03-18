@@ -11,7 +11,6 @@
 
 ;; TODO:
 ;; - more comprehensive expr/function support
-;; - turn emit into class w/ overridable methods
 ;; - macros, convert compile-time AST to run-time AST
 ;;   - statements, also public NTs!
 ;; - other kind of unquote:
