@@ -28,16 +28,18 @@
 
 (define (get-emit-sql c) ((current-get-emit-sql) c))
 
+(define current-sql-dialect (make-parameter #f))
+
 ;; ----------------------------------------
 ;; Convenience functions
 
-(define (statement->string s [obj #f])
+(define (statement->string s [obj (current-sql-dialect)])
   (send (get-emit-sql obj) statement->string s))
-(define (table-ref->string t [obj #f])
+(define (table-ref->string t [obj (current-sql-dialect)])
   (send (get-emit-sql obj) table-ref->string t))
-(define (table-expr->string t [obj #f])
+(define (table-expr->string t [obj (current-sql-dialect)])
   (send (get-emit-sql obj) table-expr->string t))
-(define (scalar-expr->string e [obj #f])
+(define (scalar-expr->string e [obj (current-sql-dialect)])
   (send (get-emit-sql obj) scalar-expr->string e))
 
 ;; ============================================================
@@ -103,10 +105,11 @@
          (lambda (self) 'sql-statement)
          ;; FIXME: what if default emit-sql raises error on ast? should catch...
          (lambda (self)
-           (cons (sql-statement-sql self #f)
+           (cons (with-handlers ([exn:fail? (lambda (e) "... not in current dialect ...")])
+                   (sql-statement-sql self (current-sql-dialect)))
                  (or (sql-statement-args self) null)))))
 
-(define (sql-statement-sql s [obj #f])
+(define (sql-statement-sql s [obj (current-sql-dialect)])
   (match s
     [(sql-statement ast _)
      (statement->string ast obj)]))

@@ -16,4 +16,6 @@
          scalar-expr->string
 
          sql-statement?
-         sql-statement-sql)
+         sql-statement-sql
+
+         current-sql-dialect)
