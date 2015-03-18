@@ -6,6 +6,7 @@
          racket/class
          racket/match
          db/base
+         unstable/custom-write
          "emit.rkt")
 (provide (except-out (all-defined-out)
                      define-ast-macros))
@@ -87,15 +88,23 @@
           [else
            ;; Use #'here lexical context for embedded AST unquotes
            (with-syntax ([ast* (datum->syntax #'here ast*)])
-             #'(sql-statement (quasiquote ast*) null))])))
+             #'(sql-statement (quasiquote ast*) #f))])))
 
 (struct sql-statement (ast args)
-        #:transparent ;; FIXME: remove
         #:property prop:statement
         (lambda (self c)
           (define sql (sql-statement-sql self c))
           (define pst (send c prepare 'sql-statement sql #t))
-          (send pst bind 'sql-statement (sql-statement-args self))))
+          (cond [(sql-statement-args self)
+                 => (lambda (args) (send pst bind 'sql-statement args))]
+                [else pst]))
+        #:property prop:custom-write
+        (make-constructor-style-printer
+         (lambda (self) 'sql-statement)
+         ;; FIXME: what if default emit-sql raises error on ast? should catch...
+         (lambda (self)
+           (cons (sql-statement-sql self #f)
+                 (or (sql-statement-args self) null)))))
 
 (define (sql-statement-sql s [obj #f])
   (match s
