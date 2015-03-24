@@ -32,7 +32,7 @@
 (err #'(select a$))
 (err #'(select * from T))
 
-(test #'(insert #:into T (a b c) #:from (select * #:from S #:where (= d ?))))
-(test #'(insert #:into T (a b c) #:values 1 2 3))
+(test #'(insert #:into T #:columns a b c #:from (select * #:from S #:where (= d ?))))
+(test #'(insert #:into T #:set [a 1] [b 2] [c 3]))
 
 (test #'(update T #:set [a (+ a 1)] [b (- b 1)] #:where (< T.a 0)))

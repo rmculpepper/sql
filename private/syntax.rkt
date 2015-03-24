@@ -8,8 +8,7 @@
          db/base
          unstable/custom-write
          "emit.rkt")
-(provide (except-out (all-defined-out)
-                     define-ast-macros))
+(provide (all-defined-out))
 
 ;; ============================================================
 ;; Determine emit-sql based on db connection
@@ -95,7 +94,7 @@
 (struct sql-statement (ast args)
         #:property prop:statement
         (lambda (self c)
-          (define sql (sql-statement-sql self c))
+          (define sql (sql-statement->string self c))
           (define pst (send c prepare 'sql-statement sql #t))
           (cond [(sql-statement-args self)
                  => (lambda (args) (send pst bind 'sql-statement args))]
@@ -106,10 +105,10 @@
          ;; FIXME: what if default emit-sql raises error on ast? should catch...
          (lambda (self)
            (cons (with-handlers ([exn:fail? (lambda (e) "... not in current dialect ...")])
-                   (sql-statement-sql self (current-sql-dialect)))
+                   (sql-statement->string self (current-sql-dialect)))
                  (or (sql-statement-args self) null)))))
 
-(define (sql-statement-sql s [obj (current-sql-dialect)])
+(define (sql-statement->string s [obj (current-sql-dialect)])
   (match s
     [(sql-statement ast _)
      (statement->string ast obj)]))

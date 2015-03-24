@@ -2,13 +2,20 @@
 (require "private/syntax.rkt"
          "private/ast.rkt"
          "private/emit.rkt")
-(provide (all-from-out "private/syntax.rkt")
-         ident?
-         name?
-         scalar-expr?
+
+(provide ;; from private/ast.rkt
+         statement?
          table-ref?
          table-expr?
-         statement?
+         scalar-expr?
+         ident?
+         name?
+
+         ;; from private/syntax.rkt
+         select
+         insert
+         update
+         delete
 
          statement->string
          table-ref->string
@@ -16,6 +23,14 @@
          scalar-expr->string
 
          sql-statement?
-         sql-statement-sql
+         sql-statement->string
 
-         current-sql-dialect)
+         current-sql-dialect
+
+         SQL:Name
+         SQL:Ident
+         SQL:TableRef
+         SQL:TableExpr
+         SQL:ScalarExpr
+         SQL:Statement
+         SQL:Select)
