@@ -343,18 +343,18 @@
 
 (define-syntax-class Name
   #:attributes (ast)
-  #:datum-literals (ident: qname:)
+  #:datum-literals (Ident: Name:)
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"
            #:attr ast (symbol->name (syntax-e #'x))
            #:when ($ ast)) ;; FIXME: need better error message!
-  (pattern (ident: x:id)
+  (pattern (Ident: x:id)
            #:attr ast (syntax-e #'x))
-  (pattern (ident: x:str)
+  (pattern (Ident: x:str)
            #:attr ast (id:quoted (syntax-e #'x)))
-  (pattern (qname: part:Name ...+)
+  (pattern (Name: part:Name ...+)
            #:attr ast (name-list->name ($ part.ast))))
 
 (define-syntax-class Ident

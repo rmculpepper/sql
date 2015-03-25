@@ -21,6 +21,8 @@
          table-ref->string
          table-expr->string
          scalar-expr->string
+         name->string
+         ident->string
 
          sql-statement?
          sql-statement->string

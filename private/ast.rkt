@@ -183,7 +183,7 @@
 
 (define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '(1)])
   (list sym arity (infix-op op-string)))
-(define ((fun-op op-string #:arg-sep [arg-sep ","]) . args)
+(define ((fun-op op-string #:arg-sep [arg-sep ", "]) . args)
   (J op-string "(" (J-join args arg-sep) ")"))
 (define ((infix-op separator) . args)
   (J "(" (J-join args separator) ")"))

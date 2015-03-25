@@ -40,6 +40,10 @@
   (send (get-emit-sql obj) table-expr->string t))
 (define (scalar-expr->string e [obj (current-sql-dialect)])
   (send (get-emit-sql obj) scalar-expr->string e))
+(define (name->string e [obj (current-sql-dialect)])
+  (send (get-emit-sql obj) name->string e))
+(define (ident->string e [obj (current-sql-dialect)])
+  (send (get-emit-sql obj) ident->string e))
 
 ;; ============================================================
 ;; Helpers

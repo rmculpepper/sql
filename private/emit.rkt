@@ -38,6 +38,10 @@
       (jumble->string (call-as-entry (lambda () (emit-table-expr t)))))
     (define/public (scalar-expr->string e)
       (jumble->string (call-as-entry (lambda () (emit-scalar-expr e)))))
+    (define/public (name->string e)
+      (jumble->string (call-as-entry (lambda () (emit-name e)))))
+    (define/public (ident->string e)
+      (jumble->string (call-as-entry (lambda () (emit-ident e)))))
 
     ;; ----------------------------------------
     ;; Statements
