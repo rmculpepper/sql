@@ -106,7 +106,6 @@
         #:property prop:custom-write
         (make-constructor-style-printer
          (lambda (self) 'sql-statement)
-         ;; FIXME: what if default emit-sql raises error on ast? should catch...
          (lambda (self)
            (cons (with-handlers ([exn:fail? (lambda (e) "... not in current dialect ...")])
                    (sql-statement->string self (current-sql-dialect)))
