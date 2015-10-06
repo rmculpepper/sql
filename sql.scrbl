@@ -44,7 +44,9 @@ separated by dot characters.
 A name or identifier written as a symbol is subject to case-folding,
 whereas one written as a string is not case-folded but interpreted
 literally. Because case-folding behavior is system-dependent, it is
-wisest to either always quote a given name or never quote it.
+wisest to either always quote a given name or never quote it. An
+identifier written as @racket[(Ident: _string)] is not case-folded; it
+is generated in quoted form.
 
 @;{ mention reserved words }
 
@@ -68,7 +70,7 @@ The following examples are all equivalent to the SQL qualified name
 table.name
 taBLE.naME
 (Name: table NAME)
-(Name: (Ident: table) (Ident: name))
+(Name: (Ident: table) (Ident: NAME))
 ]
 
 The following example is equivalent to the SQL qualified name
@@ -222,7 +224,7 @@ must be a join table expression, specifically.
 
 [join-condition
  (code:line #:natural)
- (code:line #:using (column-ident ...))
+ (code:line #:using column-ident ...)
  (code:line #:on scalar-expr)]
 
 [set-op @#,lit{union}
@@ -236,7 +238,7 @@ must be a join table expression, specifically.
 [correspond-clause
  (code:line)
  (code:line #:corresponding)
- (code:line #:corresponding-by (column-ident ...))]
+ (code:line #:corresponding-by column-ident ...)]
 
 ]
 
@@ -253,7 +255,7 @@ Constructor macro, predicate, and code generator, respectively, for
 @examples[#:eval the-eval
 (table-ref->string (SQL:TableRef supplier))
 (table-ref->string (SQL:TableRef (as supplier s)))
-(table-ref->string (SQL:TableRef (inner-join supplier part #:using (supply_id))))
+(table-ref->string (SQL:TableRef (inner-join supplier part #:using supply_id)))
 ]
 }
 
@@ -322,7 +324,7 @@ clause may not also be used.
 [assign-clause (code:line #:set [column-ident scalar-expr] ...)]
 
 [maybe-columns (code:line)
-               (code:line #:columns (column-ident ...))]
+               (code:line #:columns column-ident ...)]
 
 ]
 

@@ -280,7 +280,7 @@
 (define-splicing-syntax-class set-op-clause
   (pattern (~seq #:corresponding)
            #:attr corr 'auto)
-  (pattern (~seq #:corresponding-by (column:Ident ...))
+  (pattern (~seq #:corresponding-by column:Ident ...)
            #:attr corr (syntax->datum #'(column ...)))
   (pattern (~seq)
            #:attr corr #f))
@@ -292,7 +292,7 @@
 (define-splicing-syntax-class join-on-clause
   (pattern (~seq #:natural)
            #:attr on '(natural))
-  (pattern (~seq #:using (column:id ...))
+  (pattern (~seq #:using column:id ...)
            #:attr on `(using ,(syntax->datum #'(column ...))))
   (pattern (~seq #:on condition:ScalarExpr)
            #:attr on `(on ,($ condition.ast))))
