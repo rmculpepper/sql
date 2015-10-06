@@ -139,7 +139,7 @@ The following are examples of scalar expressions:
 table.column
 42
 "Salutations"
-(log (- 1 p))
+(log (+ 1 p))
 (and (> x 10) (< x 55))
 (coalesce x y z)
 ]
@@ -162,14 +162,14 @@ nonstandard function syntax are supported:
 ]
 
 And @lit{string-append} is provided as an alias for @tt{||}, the SQL
-concatenation operator, which reads as the empty symbol.
+concatenation operator, because @litchar{||} reads as the empty symbol.
 
 @racketblock[
 (string-append last ", " first) (code:comment "last || ', ' || first")
 ]
 
-Any symbol consisting of only the following characters is considered a
-binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
+Any symbol consisting of only the following characters is considered
+an infix binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
 
 @;{ FIXME: need table of functions and operator aliases }
 
