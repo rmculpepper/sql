@@ -129,10 +129,11 @@ value, or an application of some function or operator.
 [scalar-expr name
              exact-integer
              string
-             (name scalar-expr ...)
-             (operator-id scalar-expr ...)]
+             (operator-id scalar-expr ...)
+             (name scalar-expr ...)]
 ]
 
+@;{
 The following are examples of scalar expressions:
 
 @racketblock[
@@ -143,35 +144,71 @@ table.column
 (and (> x 10) (< x 55))
 (coalesce x y z)
 ]
+}
 
-In an abuse of syntax, types can also be written as ``scalar
-expressions'', for example in @tt{CAST} expressions:
+The following @svar[operator-id]s are handled specially:
 
-@racketblock[
-(cast "2015-03-15" DATE)    (code:comment "CAST('2015-03-15' AS DATE)")
-(cast "123" (NUMERIC 5 0))  (code:comment "CAST('123' AS NUMERIC(5, 0))")
-]
+@itemlist[
 
-Aside from @tt{CAST}, a few other standard SQL functions using
-nonstandard function syntax are supported:
+@item{The @tt{CAST} and @tt{EXTRACT} functions are written as simple
+two-argument functions:
 
 @racketblock[
-(is-null table.column)      (code:comment "table.column IS NULL")
-(like ph_num "555-____")    (code:comment "ph_num LIKE '555-____'")
-(extract YEAR dob)          (code:comment "EXTRACT(YEAR FROM dob)")
+(cast "2015-03-15" DATE)      (code:comment "CAST('2015-03-15' AS DATE)")
+(cast "123" (NUMERIC 5 0))    (code:comment "CAST('123' AS NUMERIC(5, 0))")
+(extract YEAR dob)            (code:comment "EXTRACT(YEAR FROM dob)")
 ]
 
-And @lit{string-append} is provided as an alias for @tt{||}, the SQL
-concatenation operator, because @litchar{||} reads as the empty symbol.
+Note that as above, types can also be written as ``scalar
+expressions'', in a mild abuse of syntax.
+}
+
+@item{The @tt{+}, @tt{-}, @tt{*}, and @tt{/}
+operators are chaining infix binary operators written as variadic
+functions:
 
 @racketblock[
-(string-append last ", " first) (code:comment "last || ', ' || first")
+(+ 1 2 3 4)                   (code:comment "1 + 2 + 3 + 4")
+]}
+
+@item{The SQL chaining infix binary operator @tt{||} can be written as
+@racket[\|\|] or as @racket[||]; the latter reads as the empty symbol.
+
+@racketblock[
+(|| last ", " first)          (code:comment "last || ', ' || first")
+]}
+
+@item{Any identifier consisting of only characters in
+@litchar["~!@#$%^&*-_=+|<>?/"] is considered a non-chaining infix
+binary operator:
+
+@racketblock[
+(< x y)                       (code:comment "x < y")
+(%#!$ 1 2)                    (code:comment "1 %#!$ 2")
 ]
+}
 
-Any symbol consisting of only the following characters is considered
-an infix binary operator by default: @litchar["~!@#$%^&*-_=+|<>?/"].
+@item{An identifier starting with @litchar{:} and consisting of
+@litchar{:}-separated plain names is treated as a
+multifix operator; the argument positions are indicated by the
+@litchar{:} characters. The operator components are uppercased, and
+@litchar{-} characters are replaced by spaces.
 
-@;{ FIXME: need table of functions and operator aliases }
+@racketblock[
+(:is-null table.column)       (code:comment "table.column IS NULL")
+(:is-not-null table.column)   (code:comment "table.column IS NOT NULL")
+(:between:and: x y z)         (code:comment "x BETWEEN y AND z")
+(:like: ph_num "555-____")    (code:comment "ph_num LIKE '555-____'")
+]}
+
+@item{Other names are treated as ordinary functions with unknown
+arity.
+
+@racketblock[
+(coalesce x y z)              (code:comment "coalesce(x, y, z)")
+]}
+
+]
 
 @deftogether[[
 @defform[(scalar-expr-qq scalar-expr)]
@@ -194,10 +231,10 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 (scalar-expr-ast->string (scalar-expr-qq (and (> x 10) (< x 55))))
 (scalar-expr-ast->string (scalar-expr-qq (coalesce x y z)))
 (scalar-expr-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
-(scalar-expr-ast->string (scalar-expr-qq (is-null table.column)))
-(scalar-expr-ast->string (scalar-expr-qq (like ph_num "555-____")))
 (scalar-expr-ast->string (scalar-expr-qq (extract YEAR dob)))
-(scalar-expr-ast->string (scalar-expr-qq (string-append last ", " first)))
+(scalar-expr-ast->string (scalar-expr-qq (:is-null table.column)))
+(scalar-expr-ast->string (scalar-expr-qq (:like: ph_num "555-____")))
+(scalar-expr-ast->string (scalar-expr-qq (|| last ", " first)))
 ]
 }
 

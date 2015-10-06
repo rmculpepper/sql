@@ -1,0 +1,25 @@
+TO DO
+
+- more comprehensive expr/function support
+
+- allow mixing ? and unquote params (need db-lib improvements)
+
+- keep original syntax around for (static) error checking
+
+- support more syntax
+  - table/view definition (for creation, for validation)
+
+- static checking
+  - types (need schema and SQL type env)
+  - check range-vars
+  - check aggregates
+
+- additional kinds of ScalarExpr:
+  - CASE {WHEN cond THEN result}* {ELSE result}? END
+  - EXISTS (subquery)
+  - expr IN (subquery)
+  - expr NOT IN (subquery)
+  - row-constructor op (subquery)
+  - expr IN (value ...), etc
+  - expr op ANY (subquery)
+  - expr op ALL (subquery)

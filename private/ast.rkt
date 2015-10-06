@@ -9,20 +9,6 @@
          "jumble.rkt")
 (provide (all-defined-out))
 
-;; TODO:
-;; - more comprehensive expr/function support
-;; - macros, convert compile-time AST to run-time AST
-;;   - statements, also public NTs!
-;; - other kind of unquote:
-;;   - for ScalarExpr, turn into param (but need db-lib improvements)
-;;     - also support $n params, w/ order permutation
-;; - keep original syntax around for (static) error checking
-;; - support more syntax
-;;   - table/view definition (for creation, for validation)
-;; - check types (assumes schema?)
-;; - check range-vars used correctly
-;; - check aggregates used correctly
-
 ;; ============================================================
 ;; Abstract Nonterminals
 
@@ -32,9 +18,9 @@
 
 ;; A nonterminal NT may support the following additional forms for
 ;; dynamic ast composition and SQL injection:
-;; - (NT:AST ,expr)
+;; - (NT:AST ,ast-expr)
 ;; - (NT:INJECT String)
-;; - (NT:INJECT ,expr)
+;; - (NT:INJECT ,string-expr)
 ;; For those NTs, the corresponding AST type contains the following variants:
 ;; - (list 'unquote Syntax)               -- represents case (1)
 ;; - (NT:inject String)                   -- represents case (2)
@@ -42,11 +28,10 @@
 ;; Only the second occurs at run-time, though.
 
 ;; Note for ScalarExpr: the three following forms are distinct:
-;; - (select ,expr)                      -- TODO: turns into placeholder
+;; - (select ,expr)                      -- turns into placeholder + value
 ;; - (select (ScalarExpr:AST ,expr))     -- splices ast result of expr
 ;; - (select (ScalarExpr:INJECT ,expr))  -- splices literal SQL code
-;; And note that the first form is restricted to ScalarExpr (and not
-;; implemented yet!).
+;; And note that the first form is restricted to ScalarExpr.
 
 ;; ----------------------------------------
 ;; Statements
@@ -171,16 +156,6 @@
       (string? x)
       (scalar:inject? x)))
 
-;; FIXME: support:
-;; - CASE {WHEN cond THEN result}* {ELSE result}? END
-;; - EXISTS (subquery)
-;; - expr IN (subquery)
-;; - expr NOT IN (subquery)
-;; - row-constructor op (subquery)
-;; - expr IN (value ...), etc
-;; - expr op ANY (subquery)
-;; - expr op ALL (subquery)
-
 (define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '(1)])
   (list sym arity (infix-op op-string)))
 (define ((fun-op op-string #:arg-sep [arg-sep ", "]) . args)
@@ -196,26 +171,42 @@
 
 (define standard-ops
   `([cast      2  ,(fun-op "CAST" #:arg-sep " AS ")]
-    [coalesce (2) ,(fun-op "COALESCE")]
-    [is-null   1  ,(lambda (arg) (J "(" arg " IS NULL)"))]
-    [is-not-null 1 ,(lambda (arg) (J "(" arg " IS NOT NULL)"))]
+    ;; [coalesce (2) ,(fun-op "COALESCE")]
     [extract 2 ,(fun-op "EXTRACT" #:arg-sep " FROM ")]
-    ,(infix-op-entry '+)
-    ,(infix-op-entry '-)
-    ,(infix-op-entry '*)
-    ,(infix-op-entry '/)
     ,(infix-op-entry '|| " || ") ;; HACK! Note "||" reads as the empty symbol!
-    ,(infix-op-entry 'string-append " || ")
-    ,(infix-op-entry 'string+ " || ")
+    ,(infix-op-entry '\|\| " || ")
+    ,(infix-op-entry '+ " + ")
+    ,(infix-op-entry '- " - ")
+    ,(infix-op-entry '* " * ")
+    ,(infix-op-entry '/ " / ")
     ,(infix-op-entry 'and " AND ")
     ,(infix-op-entry 'or  " OR ")
-    ,(infix-op-entry 'like " LIKE " #:arity 2)
-    ,(infix-op-entry 'not-like " NOT LIKE " #:arity 2)
     ;; Treat any other symbol composed of just the following
     ;; characters as a binary operator.
-    [#rx"^[~!@#$%^&*-_=+|<>?/]+$"
-     ,(lambda (sym) (list 2 (infix-op (format " ~a " sym))))]
+    [#rx"^[-~!@#$%^&*_=+|<>?/]+$"
+     ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
+    ;; Auto infix/suffix operators
+    ;; (:like: x y)            "x LIKE y"
+    ;; (:between:and: x y z)   "x BETWEEN y AND z"
+    ;; (:is-null x)            "x IS NULL"
+    ;; (:is-not-null x)        "x IS NOT NULL"
+    [#rx"^[:][-a-zA-Z_]+(?:[:][-a-zA-Z_]+)*([:])?$"
+     ,(lambda (op arg-follows?)
+        (define parts (string-split op #rx"[:]" #:trim? #t))
+        (list (+ (length parts) (if arg-follows? 1 0))
+              (lambda args
+                (J "(" (interleave args (map normalize-op-part parts)) ")"))))]
     ))
+
+(define (normalize-op-part s)
+  (string-upcase (string-replace s #rx"-" " ")))
+
+(define (interleave as bs)
+  (cond [(and (pair? as) (pair? bs))
+         (list* (car as) " " (interleave bs (cdr as)))]
+        [(and (pair? as) (null? bs))
+         as]
+        [else bs]))
 
 (define (op-entry op)
   (let loop ([ops standard-ops])
@@ -225,8 +216,8 @@
                   (car ops)]
                  [else (loop (cdr ops))])]
           [(regexp? (caar ops))
-           (cond [(regexp-match? (caar ops) (symbol->string op))
-                  (cons op ((cadar ops) op))]
+           (cond [(regexp-match (caar ops) (symbol->string op))
+                  => (lambda (m) (cons op (apply (cadar ops) m)))]
                  [else (loop (cdr ops))])])))
 
 (define (op-formatter op-name)
