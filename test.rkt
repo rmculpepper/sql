@@ -7,7 +7,7 @@
   (define s (parse-statement stx))
   (pretty-print (syntax->datum stx))
   (pretty-print s)
-  (printf "~a\n\n" (statement->string s)))
+  (printf "~a\n\n" (statement-ast->string s)))
 
 (define (err stx)
   (with-handlers ([values (lambda (e) (printf "OK (error raised as expected)\n\n"))])
@@ -26,7 +26,7 @@
 (test #'(select #:values *
                 #:from (as (select #:values a #:from A) T)))
 (test #'(select #:values a b
-                #:from (inner-join A B #:using (a))
+                #:from (inner-join A B #:using a)
                 #:where (= b ?)))
 
 (err #'(select a$))

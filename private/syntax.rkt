@@ -32,17 +32,17 @@
 ;; ----------------------------------------
 ;; Convenience functions
 
-(define (statement->string s [obj (current-sql-dialect)])
+(define (statement-ast->string s [obj (current-sql-dialect)])
   (send (get-emit-sql obj) statement->string s))
-(define (table-ref->string t [obj (current-sql-dialect)])
+(define (table-ref-ast->string t [obj (current-sql-dialect)])
   (send (get-emit-sql obj) table-ref->string t))
-(define (table-expr->string t [obj (current-sql-dialect)])
+(define (table-expr-ast->string t [obj (current-sql-dialect)])
   (send (get-emit-sql obj) table-expr->string t))
-(define (scalar-expr->string e [obj (current-sql-dialect)])
+(define (scalar-expr-ast->string e [obj (current-sql-dialect)])
   (send (get-emit-sql obj) scalar-expr->string e))
-(define (name->string e [obj (current-sql-dialect)])
+(define (name-ast->string e [obj (current-sql-dialect)])
   (send (get-emit-sql obj) name->string e))
-(define (ident->string e [obj (current-sql-dialect)])
+(define (ident-ast->string e [obj (current-sql-dialect)])
   (send (get-emit-sql obj) ident->string e))
 
 ;; ============================================================
@@ -115,7 +115,7 @@
 (define (sql-statement->string s [obj (current-sql-dialect)])
   (match s
     [(sql-statement ast _)
-     (statement->string ast obj)]))
+     (statement-ast->string ast obj)]))
 
 ;; ============================================================
 
@@ -146,10 +146,10 @@
     ...))
 
 (define-ast-macros
-  [SQL:Name Name]
-  [SQL:Ident Ident]
-  [SQL:TableRef TableRef]
-  [SQL:TableExpr TableExpr]
-  [SQL:ScalarExpr ScalarExpr]
-  [SQL:Statement Statement]
-  [SQL:Select Select])
+  [name-qq Name]
+  [ident-qq Ident]
+  [table-ref-qq TableRef]
+  [table-expr-qq TableExpr]
+  [scalar-expr-qq ScalarExpr]
+  [statement-qq Statement]
+  [select-qq Select])

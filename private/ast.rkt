@@ -51,7 +51,7 @@
 ;; ----------------------------------------
 ;; Statements
 
-(define (statement? x)
+(define (statement-ast? x)
   (or (statement:select? x)
       (statement:insert? x)
       (statement:update? x)
@@ -114,11 +114,11 @@
 (struct table-ref:as (e rangevar) #:prefab)
 (struct table-ref:inject (sql) #:prefab)
 
-(define (table-ref? x)
+(define (table-ref-ast? x)
   (or (table-ref:name? x)
       (table-ref:as? x)
       (table-ref:inject? x)
-      (table-expr? x)))
+      (table-expr-ast? x)))
 
 ;; ----------------------------------------
 ;; Table Expressions
@@ -130,7 +130,7 @@
 (struct table-expr:select (select) #:prefab)
 (struct table-expr:inject (sql) #:prefab)
 
-(define (table-expr? x)
+(define (table-expr-ast? x)
   (or (join-table-expr? x)
       (nonjoin-table-expr? x)
       (table-expr:inject? x)))
@@ -163,10 +163,10 @@
 (struct scalar:inject (s) #:prefab)
 (struct scalar:unquote (expr) #:prefab)
 
-(define (scalar-expr? x)
+(define (scalar-expr-ast? x)
   (or (scalar:app? x)
       (scalar:placeholder? x)
-      (name? x)
+      (name-ast? x)
       (exact-integer? x)
       (string? x)
       (scalar:inject? x)))
@@ -249,8 +249,8 @@
 ;; - (qname Name Ident)   -- qualified name
 (struct qname (qual id) #:prefab)
 
-(define (name? x)
-  (or (ident? x)
+(define (name-ast? x)
+  (or (ident-ast? x)
       (qname? x)))
 
 ;; An Ident is one of
@@ -258,6 +258,6 @@
 ;; - (id:literal String)  -- to be quoted when emitted
 (struct id:quoted (s) #:prefab)
 
-(define (ident? x)
+(define (ident-ast? x)
   (or (symbol? x)
       (id:quoted? x)))
