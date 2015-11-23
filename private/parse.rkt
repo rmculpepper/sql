@@ -379,9 +379,6 @@
          (SQL-regular-id? part))
        (symbol-list->name (map string->symbol parts))))
 
-(define (SQL-regular-id? s)
-  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9_]*$" s))
-
 (define (symbol-list->name parts)
   (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])
     (qname qual part)))

@@ -287,7 +287,15 @@
         [(scalar:inject sql)
          sql]
         [(scalar:app op args)
-         (define formatter (or (op-formatter op) (fun-op (emit-name op))))
+         (define formatter
+           (cond [(not (symbol? op))
+                  (fun-op (emit-name op))]
+                 [(op-formatter op)
+                  => values]
+                 [(SQL-regular-id? (symbol->string op))
+                  (fun-op (emit-name op))]
+                 [else
+                  (error 'emit-scalar-expr "unknown operator\n  operator: ~e" op)]))
          (apply formatter (map emit-scalar-expr args))]
         [(scalar:table te)
          (J "(" (emit-table-expr te) ")")]

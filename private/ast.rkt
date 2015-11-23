@@ -184,6 +184,8 @@
     ,(infix-op-entry '/ " / ")
     ,(infix-op-entry 'and " AND ")
     ,(infix-op-entry 'or  " OR ")
+    [exists 1 ,(lambda (arg) (J "EXISTS " arg))]
+    [not-exists 1 ,(lambda (arg) (J "NOT EXISTS " arg))]
     ;; Treat any other symbol composed of just the following
     ;; characters as a binary operator.
     [#rx"^[-~!@#$%^&*_=+|<>?/]+$"
@@ -199,6 +201,14 @@
         (list (+ (length parts) (if arg-follows? 1 0))
               (lambda args
                 (J "(" (interleave args (map normalize-op-part parts)) ")"))))]
+    ;; Modifiers (non-parenthesized)
+    ;; (all% x)  "ALL x"
+    [#rx"^[%]([a-zA-Z]+)$"
+     ,(lambda (op part)
+        (list 1 (lambda (arg) (J arg " " (normalize-op-part part)))))]
+    [#rx"^([a-zA-Z]+)[%]$"
+     ,(lambda (op part)
+        (list 1 (lambda (arg) (J (normalize-op-part part) " " arg))))]
     ))
 
 (define (normalize-op-part s)
@@ -255,3 +265,6 @@
 (define (ident-ast? x)
   (or (symbol? x)
       (id:quoted? x)))
+
+(define (SQL-regular-id? s)
+  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9_]*$" s))
