@@ -45,7 +45,7 @@ versions of this library.
 A name is either an unqualified identifier or an identifier qualified
 with a name, which depending on its usage might represent a catalog,
 schema, table, range variable, etc. A ``regular identifier'' matching
-the pattern @racket[#rx"[a-zA-Z][a-zA-Z0-9_]"] may be written as a
+the pattern @racket[#rx"[a-zA-Z][a-zA-Z0-9_]*"] may be written as a
 single symbol, and a qualified name whose components are all regular
 identifier can be written as a single symbol with its components
 separated by dot characters.
