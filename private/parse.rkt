@@ -302,12 +302,14 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote)
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case)
   (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
+  (pattern (~and (case ~! . _) ce:CaseExpr)
+           #:attr ast ($ ce.ast))
   (pattern (unquote ~! e:expr)
            #:attr ast (scalar:unquote #'e))
   (pattern n:exact-integer
@@ -329,6 +331,19 @@
   #:attributes (ast)
   (pattern :NonSpecialId)
   (pattern :Name))
+
+(define-syntax-class CaseExpr
+  #:attributes (ast)
+  #:datum-literals (case else)
+  (pattern (case #:of ~! value:ScalarExpr cs:CaseClause ... [else ec:ScalarExpr])
+           #:attr ast (scalar:case-of ($ value.ast) ($ cs.ast) ($ ec.ast)))
+  (pattern (case cs:CaseClause ... [else ec:ScalarExpr])
+           #:attr ast (scalar:case ($ cs.ast) ($ ec.ast))))
+
+(define-syntax-class CaseClause
+  #:attributes (ast)
+  (pattern [q:ScalarExpr a:ScalarExpr]
+           #:attr ast (cons ($ q.ast) ($ a.ast))))
 
 ;; ============================================================
 ;; Names and Identifiers

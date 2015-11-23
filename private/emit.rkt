@@ -296,7 +296,15 @@
                   (fun-op (emit-name op))]
                  [else
                   (error 'emit-scalar-expr "unknown operator\n  operator: ~e" op)]))
-         (apply formatter (map emit-scalar-expr args))]
+         (apply formatter (for/list ([a (in-list args)]) (emit-scalar-expr a)))]
+        [(scalar:case cases else)
+         (J "CASE"
+            (for/list ([c (in-list cases)]) (emit-case-clause c))
+            " ELSE " (emit-scalar-expr else) " END")]
+        [(scalar:case-of value cases else)
+         (J "CASE " (emit-scalar-expr value)
+            (for/list ([c (in-list cases)]) (emit-case-clause c))
+            " ELSE " (emit-scalar-expr else) " END")]
         [(scalar:table te)
          (J "(" (emit-table-expr te) ")")]
         [(scalar:placeholder)
@@ -307,6 +315,10 @@
          (J "'" (regexp-replace* #rx"'" e "''") "'")]
         [(? exact-integer?)
          (number->string e)]))
+
+    (define/private (emit-case-clause c)
+      (J " WHEN " (emit-scalar-expr (car c))
+         " THEN " (emit-scalar-expr (cdr c))))
 
     ;; ----------------------------------------
 
