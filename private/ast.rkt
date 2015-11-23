@@ -136,6 +136,7 @@
 
 ;; A ScalarExpr is one of
 ;; - (scalar:app Op (Listof ScalarExpr))
+;; - (scalar:table TableExpr)
 ;; - (scalar:placeholder)
 ;; - Name
 ;; - ExactInteger
@@ -145,11 +146,13 @@
 ;; * (scalar:unquote Syntax)  -- to be converted to placeholder
 (struct scalar:app (op args) #:prefab)
 (struct scalar:placeholder () #:prefab)
+(struct scalar:table (te) #:prefab)
 (struct scalar:inject (s) #:prefab)
 (struct scalar:unquote (expr) #:prefab)
 
 (define (scalar-expr-ast? x)
   (or (scalar:app? x)
+      (scalar:table? x)
       (scalar:placeholder? x)
       (name-ast? x)
       (exact-integer? x)

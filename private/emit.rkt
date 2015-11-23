@@ -289,6 +289,8 @@
         [(scalar:app op args)
          (define formatter (or (op-formatter op) (fun-op (emit-name op))))
          (apply formatter (map emit-scalar-expr args))]
+        [(scalar:table te)
+         (J "(" (emit-table-expr te) ")")]
         [(scalar:placeholder)
          "?"]
         [(or (? symbol?) (? qname?))

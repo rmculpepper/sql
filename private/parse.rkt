@@ -95,7 +95,7 @@
 (define-syntax-class SelectItem
   #:attributes (ast)
   #:datum-literals (as *)
-  (pattern (as expr:ScalarExpr column:Ident)
+  (pattern (as ~! expr:ScalarExpr column:Ident)
            #:attr ast (select-item:as ($ expr.ast) ($ column.ast)))
   (pattern *
            ;; FIXME: add qualified.* support
@@ -234,7 +234,7 @@
   (pattern (as table-name:Name range-var:Ident)
            #:attr ast (table-ref:as (table-ref:name ($ table-name.ast))
                                     ($ range-var.ast)))
-  (pattern (as t:TableExpr range-var:Ident)
+  (pattern (as ~! t:TableExpr range-var:Ident)
            #:attr ast (table-ref:as ($ t.ast) ($ range-var.ast)))
   (pattern :TableExpr))
 
@@ -246,20 +246,20 @@
            #:attr ast ($ u.ast))
   (pattern (TableExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (table-expr:inject ($ inj.ast)))
-  (pattern (cross-join t1:TableRef t2:TableRef)
+  (pattern (cross-join ~! t1:TableRef t2:TableRef)
            #:attr ast (table-expr:cross-join ($ t1.ast) ($ t2.ast)))
-  (pattern (j:Join t1:TableRef t2:TableRef :join-on-clause)
+  (pattern (j:Join ~! t1:TableRef t2:TableRef :join-on-clause)
            #:attr ast (table-expr:join (syntax-e #'j) ($ t1.ast) ($ t2.ast) ($ on)))
-  (pattern (so:SetOp t1:expr t2:expr :maybe-all :set-op-clause)
+  (pattern (so:SetOp ~! t1:expr t2:expr :maybe-all :set-op-clause)
            #:attr ast (table-expr:set-op (syntax-e #'so)
                                          (parse-table-expr #'t1)
                                          (parse-table-expr #'t2)
                                          (attribute all?)
                                          (attribute corr)))
-  (pattern (values e:expr ...)
+  (pattern (values ~! e:expr ...)
            #:attr ast (table-expr:values
                        (list (map parse-scalar-expr (syntax->list #'(e ...))))))
-  (pattern (values* [e:expr ...] ...)
+  (pattern (values* ~! [e:expr ...] ...)
            #:attr ast (table-expr:values
                        (for/list ([es (syntax->list #'((e ...) ...))])
                          (for/list ([e (syntax->list es)])
@@ -317,6 +317,8 @@
   (pattern :Name)
   (pattern ?
            #:attr ast (scalar:placeholder))
+  (pattern te:TableExpr
+           #:attr ast (scalar:table ($ te.ast)))
   (pattern (op:Op arg:ScalarExpr ...)
            #:fail-unless (check-arity ($ op.ast)
                                       (length (syntax->list #'(arg ...))))
@@ -404,6 +406,8 @@
 (define special-symbols
   '(? unquote     ;; these have other special meanings
     select insert update delete
+    as values values* union except intersect
+    cross-join inner-join left-join right-join full-join union-join
     from as where ;; to catch forgotten "#:" mistakes
     ))
 
