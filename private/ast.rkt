@@ -37,10 +37,18 @@
 ;; Statements
 
 (define (statement-ast? x)
-  (or (statement:select? x)
+  (or (statement:with? x)
+      (statement:select? x)
       (statement:insert? x)
       (statement:update? x)
       (statement:delete? x)))
+
+;; ----------------------------------------
+;; With
+
+;; A With is
+;; (statement:with Boolean (Listof Ident) (Listof Select) Statement)
+(struct statement:with (rec? names rhss body) #:prefab)
 
 ;; ----------------------------------------
 ;; Select

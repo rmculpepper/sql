@@ -34,11 +34,15 @@
 
 (define-syntax-class Statement
   #:attributes (ast)
+  (pattern :With)
   (pattern :Select)
   (pattern :Insert)
   (pattern :Update)
   (pattern :Delete))
 
+(define-syntax-class With
+  #:attributes (ast)
+  (pattern (~and ((~datum with) . _) :WithInner)))
 (define-syntax-class Select
   #:attributes (ast)
   (pattern (~and ((~datum select) . _) :SelectInner)))
@@ -51,6 +55,27 @@
 (define-syntax-class Delete
   #:attributes (ast)
   (pattern (~and ((~datum delete) . _) :DeleteInner)))
+
+;; ============================================================
+;; With Statement
+
+(define-syntax-class WithInner
+  #:description #f
+  #:attributes (ast)
+  (pattern (_ rec:MaybeRec ([name:Ident rhs:SelectOrWith] ...) body:Statement)
+           #:attr ast (statement:with ($ rec.ast) ($ name.ast) ($ rhs.ast) ($ body.ast))))
+
+(define-splicing-syntax-class MaybeRec
+  #:description #f
+  #:attributes (ast)
+  (pattern (~seq #:recursive) #:attr ast #t)
+  (pattern (~seq) #:attr ast #f))
+
+(define-syntax-class SelectOrWith
+  #:attributes (ast)
+  (pattern :Select)
+  (pattern (_ rec:MaybeRec ([name:Ident rhs:Select] ...) body:SelectOrWith)
+           #:attr ast (statement:with ($ rec.ast) ($ name.ast) ($ rhs.ast) ($ body.ast))))
 
 ;; ============================================================
 ;; Select Statement

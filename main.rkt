@@ -27,6 +27,7 @@
          name-ast->string
          ident-ast->string
 
+         with
          select
          insert
          update

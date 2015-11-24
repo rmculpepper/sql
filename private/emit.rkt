@@ -48,10 +48,25 @@
 
     (define/public (emit-statement s)
       (match s
+        [(? statement:with?)   (emit-with s)]
         [(? statement:select?) (emit-select s)]
         [(? statement:insert?) (emit-insert s)]
         [(? statement:update?) (emit-update s)]
         [(? statement:delete?) (emit-delete s)]))
+
+    ;; ----------------------------------------
+    ;; With
+
+    (define/public (emit-with s)
+      (match s
+        [(statement:with rec? names rhss body)
+         (J "WITH "
+            (if rec? "RECURSIVE " "")
+            (J-join (for/list ([name (in-list names)] [rhs (in-list rhss)])
+                      (J (emit-ident name) " AS (" (emit-statement rhs) ")"))
+                    ", ")
+            " "
+            (emit-statement body))]))
 
     ;; ----------------------------------------
     ;; Select

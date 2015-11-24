@@ -118,6 +118,10 @@
 
 ;; ============================================================
 
+(define-syntax (with stx)
+  (syntax-parse stx
+    [:WithInner (make-stmt-expr stx ($ ast))]))
+
 (define-syntax (select stx)
   (syntax-parse stx
     [:SelectInner (make-stmt-expr stx ($ ast))]))
