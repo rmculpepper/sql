@@ -190,6 +190,11 @@
     ,(infix-op-entry 'or  " OR ")
     [exists 1 ,(lambda (arg) (J "EXISTS " arg))]
     [not-exists 1 ,(lambda (arg) (J "NOT EXISTS " arg))]
+    [all 1 ,(lambda (arg) (J "ALL " arg))]
+    [distinct 1 ,(lambda (arg) (J "DISTINCT " arg))]
+    [%ref (2) ,(lambda (array . indexes)
+                 (J "(" array ")[" (J-join indexes ",") "]"))]
+    [%tuple (1) ,(lambda args (J "(" (J-join args ",") ")"))]
     ;; Treat any other symbol composed of just the following
     ;; characters as a binary operator.
     [#rx"^[-~!@#$%^&*_=+|<>?/]+$"
@@ -205,14 +210,11 @@
         (list (+ (length parts) (if arg-follows? 1 0))
               (lambda args
                 (J "(" (interleave args (map normalize-op-part parts)) ")"))))]
-    ;; Modifiers (non-parenthesized)
-    ;; (all% x)  "ALL x"
-    [#rx"^[%]([a-zA-Z]+)$"
-     ,(lambda (op part)
-        (list 1 (lambda (arg) (J arg " " (normalize-op-part part)))))]
-    [#rx"^([a-zA-Z]+)[%]$"
-     ,(lambda (op part)
-        (list 1 (lambda (arg) (J (normalize-op-part part) " " arg))))]
+    ;; Field reference
+    ;; (.field x)    "x.field"
+    [#rx"^[.]([a-zA-Z_][a-zA-Z_0-9]*)$"
+     ,(lambda (op field-name)
+        (list 1 (lambda (arg) (J "(" arg ")." field-name))))]
     ))
 
 (define (normalize-op-part s)
@@ -247,7 +249,7 @@
         [else #t]))
 
 (define (arity-includes? a n)
-  (cond [(pair? a) (> n (car a))]
+  (cond [(pair? a) (>= n (car a))]
         [else (= n a)]))
 
 ;; ----------------------------------------
