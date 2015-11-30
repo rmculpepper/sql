@@ -47,8 +47,9 @@
 ;; With
 
 ;; A With is
-;; (statement:with Boolean (Listof Ident) (Listof Select) Statement)
-(struct statement:with (rec? names rhss body) #:prefab)
+;; (statement:with Boolean (Listof WithHeader) (Listof Select) Statement)
+;; where WithHeader = (cons Ident (U #f (Listof Ident)))
+(struct statement:with (rec? headers rhss body) #:prefab)
 
 ;; ----------------------------------------
 ;; Select

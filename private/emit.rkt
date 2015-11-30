@@ -59,14 +59,22 @@
 
     (define/public (emit-with s)
       (match s
-        [(statement:with rec? names rhss body)
+        [(statement:with rec? headers rhss body)
          (J "WITH "
             (if rec? "RECURSIVE " "")
-            (J-join (for/list ([name (in-list names)] [rhs (in-list rhss)])
-                      (J (emit-ident name) " AS (" (emit-statement rhs) ")"))
+            (J-join (for/list ([h (in-list headers)] [rhs (in-list rhss)])
+                      (J (emit-with-header h) " AS (" (emit-statement rhs) ")"))
                     ", ")
             " "
             (emit-statement body))]))
+
+    (define/public (emit-with-header s)
+      (match s
+        [(cons name #f)
+         (emit-ident name)]
+        [(cons name columns)
+         (J (emit-ident name) " ("
+            (J-join (for/list ([c (in-list columns)]) (emit-ident c)) ", ") ")")]))
 
     ;; ----------------------------------------
     ;; Select

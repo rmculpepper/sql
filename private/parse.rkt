@@ -62,8 +62,8 @@
 (define-syntax-class WithInner
   #:description #f
   #:attributes (ast)
-  (pattern (_ rec:MaybeRec ([name:Ident rhs:SelectOrWith] ...) body:Statement)
-           #:attr ast (statement:with ($ rec.ast) ($ name.ast) ($ rhs.ast) ($ body.ast))))
+  (pattern (_ rec:MaybeRec ([h:CTHeader rhs:Statement] ...) body:Statement)
+           #:attr ast (statement:with ($ rec.ast) ($ h.ast) ($ rhs.ast) ($ body.ast))))
 
 (define-splicing-syntax-class MaybeRec
   #:description #f
@@ -71,11 +71,12 @@
   (pattern (~seq #:recursive) #:attr ast #t)
   (pattern (~seq) #:attr ast #f))
 
-(define-syntax-class SelectOrWith
+(define-syntax-class CTHeader
   #:attributes (ast)
-  (pattern :Select)
-  (pattern (_ rec:MaybeRec ([name:Ident rhs:Select] ...) body:SelectOrWith)
-           #:attr ast (statement:with ($ rec.ast) ($ name.ast) ($ rhs.ast) ($ body.ast))))
+  (pattern name:Ident
+           #:attr ast (cons ($ name.ast) #f))
+  (pattern (name:Ident column:Ident ...)
+           #:attr ast (cons ($ name.ast) ($ column.ast))))
 
 ;; ============================================================
 ;; Select Statement
