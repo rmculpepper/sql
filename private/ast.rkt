@@ -34,6 +34,35 @@
 ;; And note that the first form is restricted to ScalarExpr.
 
 ;; ----------------------------------------
+;; DDL Statements
+
+(define (ddl-ast? x)
+  (ddl:create-table? x)
+  (ddl:create-table-as? x)
+  (ddl:create-view? x))
+
+;; A DDL is one of
+;; - (ddl:create-table Ident Boolean (Listof Column) (Listof Constraint))
+;; - (ddl:create-table-as Ident Boolean Statement)
+;; - (ddl:create-view Ident Statement)
+;; A Column is (column Ident ScalarExpr Boolean)
+(struct ddl:create-table (name temp? columns constraints) #:prefab)
+(struct ddl:create-table-as (name temp? select) #:prefab)
+(struct ddl:create-view (name rhs) #:prefab)
+(struct column (name type not-null?) #:prefab)
+
+;; A Constraint is one of
+;; - (constraint:named Ident Constraint)
+;; - (constraint:check ScalarExpr)
+;; - (constraint:primary-key (Listof Ident))
+;; - (constraint:unique (Listof Ident))
+(struct constraint:named (name constraint) #:prefab)
+(struct constraint:check (expr) #:prefab)
+(struct constraint:primary-key (columns) #:prefab)
+(struct constraint:unique (columns) #:prefab)
+
+
+;; ----------------------------------------
 ;; Statements
 
 (define (statement-ast? x)

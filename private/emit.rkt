@@ -52,7 +52,50 @@
         [(? statement:select?) (emit-select s)]
         [(? statement:insert?) (emit-insert s)]
         [(? statement:update?) (emit-update s)]
-        [(? statement:delete?) (emit-delete s)]))
+        [(? statement:delete?) (emit-delete s)]
+        [(? ddl:create-table?) (emit-create-table s)]
+        [(? ddl:create-table-as?) (emit-create-table-as s)]
+        [(? ddl:create-view?) (emit-create-view s)]))
+
+    ;; ----------------------------------------
+    ;; DDL Statements
+
+    (define/public (emit-create-view s)
+      (match s
+        [(ddl:create-view name rhs)
+         (J "CREATE VIEW " (emit-ident name) " AS " (emit-statement rhs))]))
+
+    (define/public (emit-create-table s)
+      (match s
+        [(ddl:create-table name temp? columns constraints)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-ident name)
+            " (" (J-join (map emit-column columns) ", ")
+            (if (and (pair? columns) (pair? constraints)) ", " "")
+            (J-join (map emit-constraint constraints) ", ")
+            ")")]))
+
+    (define/public (emit-create-table-as s)
+      (match s
+        [(ddl:create-table-as name temp? rhs)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-ident name)
+            " AS (" (emit-statement rhs) ")")]))
+
+    (define/public (emit-column c)
+      (match c
+        [(column name type not-null?)
+         (J (emit-ident name) " " (emit-scalar-expr type)
+            (if not-null? " NOT NULL" ""))]))
+
+    (define/public (emit-constraint c)
+      (match c
+        [(constraint:named name c)
+         (J "CONSTRAINT " (emit-ident name) " " (emit-constraint c))]
+        [(constraint:primary-key columns)
+         (J "PRIMARY KEY (" (emit-ident-commalist columns) ")")]
+        [(constraint:unique columns)
+         (J "UNIQUE (" (emit-ident-commalist columns) ")")]
+        [(constraint:check expr)
+         (J "CHECK (" (emit-scalar-expr expr) ")")]))
 
     ;; ----------------------------------------
     ;; With
@@ -73,8 +116,7 @@
         [(cons name #f)
          (emit-ident name)]
         [(cons name columns)
-         (J (emit-ident name) " ("
-            (J-join (for/list ([c (in-list columns)]) (emit-ident c)) ", ") ")")]))
+         (J (emit-ident name) " (" (emit-ident-commalist columns) ")")]))
 
     ;; ----------------------------------------
     ;; Select
@@ -153,7 +195,7 @@
 
     (define/public (emit-insert-columns columns)
       (if columns
-          (J " (" (J-join (map emit-ident columns) ", ") ") ")
+          (J " (" (emit-ident-commalist columns) ") ")
           " "))
 
     ;; ----------------------------------------
@@ -241,7 +283,7 @@
     (define/public (emit-join-on/part2 on)
       (match on
         [`(using ,columns)
-         (J " USING (" (J-join (map emit-ident columns) ", ") ")")]
+         (J " USING (" (emit-ident-commalist columns) ")")]
         [`(on ,condition)
          (J " ON " (emit-scalar-expr condition))]
         [_ ""]))
@@ -301,7 +343,7 @@
            [`#f ""]
            [`#t "CORRESPONDING "]
            [(list columns ...)
-            (J "CORRESPONDING (" (J-join (map emit-ident columns) ", ") ") ")])))
+            (J "CORRESPONDING (" (emit-ident-commalist columns) ") ")])))
 
     ;; ----------------------------------------
 
@@ -357,6 +399,9 @@
          (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
         [(? symbol? s)
          (symbol->string s)]))
+
+    (define/public (emit-ident-commalist ids)
+      (J-join (for/list ([id (in-list ids)]) (emit-ident id)) ", "))
 
     ))
 

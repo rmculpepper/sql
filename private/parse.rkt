@@ -57,6 +57,72 @@
   (pattern (~and ((~datum delete) . _) :DeleteInner)))
 
 ;; ============================================================
+;; DDL Statements
+
+(define-syntax-class DDL
+  #:attributes (ast)
+  (pattern :CreateTable)
+  (pattern :CreateView))
+
+(define-syntax-class CreateTable
+  #:attributes (ast)
+  (pattern (~and ((~datum create-table) . _) :CreateTableInner)))
+
+(define-syntax-class CreateTableInner
+  #:attributes (ast)
+  (pattern (_ (~optional (~and #:temporary temp?))
+              name:Ident (c:ColumnDef ...)
+              (~or (~optional pk:PrimaryKey)
+                   tc:TableConstraint)
+              ...)
+           #:attr ast (let ([pk ($ pk.ast)])
+                        (ddl:create-table ($ name.ast)
+                                          (and ($ temp?) #t)
+                                          ($ c.ast)
+                                          (if pk (cons pk ($ tc.ast)) ($ tc.ast)))))
+  (pattern (_ (~optional (~and #:temporary temp?))
+              name:Ident #:as s:Statement)
+           #:attr ast (ddl:create-table-as ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
+
+(define-syntax-class ColumnDef
+  #:attributes (ast)
+  (pattern [name:Ident type:ScalarExpr (~optional (~and #:not-null nn))]
+           #:attr ast (column ($ name.ast) ($ type.ast) (and ($ nn) #t))))
+
+(define-syntax-class PrimaryKey
+  #:attributes (ast)
+  #:datum-literals (primary-key)
+  (pattern (primary-key c:Ident ...)
+           #:attr ast (constraint:primary-key ($ c.ast))))
+
+(define-syntax-class TableConstraint
+  #:attributes (ast)
+  #:datum-literals (constraint)
+  (pattern (constraint name:Ident c:TableConstraintInner)
+           #:attr ast (constraint:named ($ name.ast) ($ c.ast)))
+  (pattern :TableConstraintInner))
+
+(define-syntax-class TableConstraintInner
+  #:attributes (ast)
+  #:datum-literals (primary-key unique cast)
+  (pattern (primary-key c:Ident)
+           #:attr ast (constraint:primary-key ($ c.ast)))
+  (pattern (unique c:Ident ...)
+           #:attr ast (constraint:unique ($ c.ast)))
+  (pattern (check e:ScalarExpr)
+           #:attr ast (constraint:check ($ e.ast))))
+
+(define-syntax-class CreateView
+  #:attributes (ast)
+  (pattern (~and ((~datum create-view) . _) :CreateViewInner)))
+
+(define-syntax-class CreateViewInner
+  #:attributes (ast)
+  (pattern (_ name:Ident s:Statement)
+           #:attr ast (ddl:create-view ($ name.ast) ($ s.ast))))
+
+
+;; ============================================================
 ;; With Statement
 
 (define-syntax-class WithInner
@@ -343,6 +409,7 @@
   (pattern s:str
            #:attr ast (syntax-e #'s))
   (pattern :Name)
+  (pattern :AllFrom)
   (pattern ?
            #:attr ast (scalar:placeholder))
   (pattern te:TableExpr
@@ -355,7 +422,7 @@
 
 (define-syntax-class Op
   #:attributes (ast)
-  (pattern :NonSpecialId)
+  (pattern :OperatorId)
   (pattern :Name))
 
 (define-syntax-class CaseExpr
@@ -387,11 +454,8 @@
 (define-syntax-class Name
   #:attributes (ast)
   #:datum-literals (Ident: Name:)
-  (pattern x:id
-           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
-           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
-                       "identifier includes SQL comment syntax"
-           #:attr ast (symbol->name (syntax-e #'x))
+  (pattern x:non-special-id
+           #:attr ast (parse-name (syntax-e #'x))
            #:when ($ ast)) ;; FIXME: need better error message!
   (pattern (Ident: x:id)
            #:attr ast (syntax-e #'x))
@@ -400,25 +464,52 @@
   (pattern (Name: part:Name ...+)
            #:attr ast (name-list->name ($ part.ast))))
 
+(define-syntax-class AllFrom
+  #:attributes (ast)
+  #:datum-literals (Name: *)
+  #:description "Name"  ;; FIXME: figure out error reporting
+  (pattern x:non-special-id
+           #:attr m (regexp-match #rx"^(.*)[.][*]$" (symbol->string (syntax-e #'x)))
+           #:attr ast (let* ([q (and ($ m) (parse-name (cadr ($ m))))])
+                        (and q (qname q '*)))
+           #:when ($ ast))
+  (pattern (Name: *)
+           #:attr ast '*)
+  (pattern (Name: part:Name ...+ *)
+           #:attr ast (let ([q (name-list->name ($ part.ast))])
+                        (qname q '*))))
+
+(define-syntax-class non-special-id
+  #:description #f
+  #:attributes ()
+  (pattern x:id
+           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
+           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
+                       "identifier includes SQL comment syntax"))
+
 (define-syntax-class Ident
   #:attributes (ast)
   (pattern x:Name
            #:fail-when (qname? ($ x.ast)) "expected unqualified name"
            #:attr ast ($ x.ast)))
 
-(define-syntax-class NonSpecialId
+(define-syntax-class OperatorId
   #:attributes (ast)
+  #:description #f
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))
 
-(define (symbol->name s)
-  (define parts (regexp-split #rx"\\." (symbol->string s)))
-  (and (for/and ([part (in-list parts)])
-         (SQL-regular-id? part))
-       (symbol-list->name (map string->symbol parts))))
+(define (parse-name s)
+  (cond [(symbol? s)
+         (parse-name (symbol->string s))]
+        [else
+         (define parts (regexp-split #rx"\\." s))
+         (and (for/and ([part (in-list parts)])
+                (SQL-regular-id? part))
+              (symbol-list->name (map string->symbol parts)))]))
 
 (define (symbol-list->name parts)
   (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])

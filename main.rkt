@@ -20,6 +20,8 @@
          statement-qq
          select-qq
 
+         ddl-qq
+
          statement-ast->string
          table-ref-ast->string
          table-expr-ast->string
@@ -32,6 +34,9 @@
          insert
          update
          delete
+
+         create-table
+         create-view
 
          sql-statement?
          sql-statement->string

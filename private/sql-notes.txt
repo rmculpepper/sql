@@ -183,3 +183,31 @@ row-constructor =
     symbol                      ;; dot-separated
   | string                      ;; dot-separated
   | (q symbol/string ...+)      ;; dots interpreted literally (if possible)
+
+----
+
+create-table-stmt =
+  CREATE [TEMPORARY] TABLE ident (column, ..., table-constraint, ...)
+
+column =
+  column-ident type [collation] [column-constraint ...]
+
+column-constraint =
+  [ CONSTRAINT constraint-ident ] column-constraint-body defer-options
+
+column-constraint-body =
+    NOT NULL
+  | CHECK ( expression )
+  | PRIMARY KEY
+  | UNIQUE
+
+defer-options =
+  [[NOT] DEFERRED] [INITIALLY { DEFERRED | IMMEDIATE }]
+
+table-constraint =
+  [ CONSTRAINT constraint-ident ] table-constraint-body
+
+table-constraint-body =
+    PRIMARY KEY (column-ident, ...)
+  | CHECK (expr)
+  | UNIQUE (column-ident, ...)

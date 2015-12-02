@@ -139,6 +139,17 @@
     [:DeleteInner (make-stmt-expr stx ($ ast))]))
 
 ;; ============================================================
+;; DDL
+
+(define-syntax (create-table stx)
+  (syntax-parse stx
+    [:CreateTableInner (make-stmt-expr stx ($ ast))]))
+
+(define-syntax (create-view stx)
+  (syntax-parse stx
+    [:CreateViewInner (make-stmt-expr stx ($ ast))]))
+
+;; ============================================================
 ;; ASTs
 
 (define-syntax-rule (define-ast-macros [name nt] ...)
@@ -155,4 +166,5 @@
   [table-expr-qq TableExpr]
   [scalar-expr-qq ScalarExpr]
   [statement-qq Statement]
-  [select-qq Select])
+  [select-qq Select]
+  [ddl-qq DDL])
