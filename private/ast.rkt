@@ -56,11 +56,12 @@
 ;; - (constraint:check ScalarExpr)
 ;; - (constraint:primary-key (Listof Ident))
 ;; - (constraint:unique (Listof Ident))
+;; - (constraint:references (Listof Ident) Name (U (Listof Ident) #f))
 (struct constraint:named (name constraint) #:prefab)
 (struct constraint:check (expr) #:prefab)
 (struct constraint:primary-key (columns) #:prefab)
 (struct constraint:unique (columns) #:prefab)
-
+(struct constraint:references (columns foreign-table foreign-columns) #:prefab)
 
 ;; ----------------------------------------
 ;; Statements
@@ -71,6 +72,14 @@
       (statement:insert? x)
       (statement:update? x)
       (statement:delete? x)))
+
+(define (select-like-statement? x)
+  (match x
+    [(? statement:select?) #t]
+    [(statement:with rec? headers rhss body)
+     (and (andmap select-like-statement? rhss)
+          (select-like-statement? body))]
+    [_ #f]))
 
 ;; ----------------------------------------
 ;; With

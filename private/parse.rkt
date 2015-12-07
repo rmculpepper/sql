@@ -104,13 +104,15 @@
 
 (define-syntax-class TableConstraintInner
   #:attributes (ast)
-  #:datum-literals (primary-key unique cast)
+  #:datum-literals (primary-key unique cast foreign-key)
   (pattern (primary-key c:Ident)
            #:attr ast (constraint:primary-key ($ c.ast)))
   (pattern (unique c:Ident ...)
            #:attr ast (constraint:unique ($ c.ast)))
   (pattern (check e:ScalarExpr)
-           #:attr ast (constraint:check ($ e.ast))))
+           #:attr ast (constraint:check ($ e.ast)))
+  (pattern (foreign-key (c:Ident ...) #:references foreign:TableWColumns)
+           #:attr ast (constraint:references ($ c.ast) ($ foreign.ast))))
 
 (define-syntax-class CreateView
   #:attributes (ast)
@@ -128,7 +130,7 @@
 (define-syntax-class WithInner
   #:description #f
   #:attributes (ast)
-  (pattern (_ rec:MaybeRec ([h:CTHeader rhs:Statement] ...) body:Statement)
+  (pattern (_ rec:MaybeRec ([h:TableWColumns rhs:Statement] ...) body:Statement)
            #:attr ast (statement:with ($ rec.ast) ($ h.ast) ($ rhs.ast) ($ body.ast))))
 
 (define-splicing-syntax-class MaybeRec
@@ -137,7 +139,7 @@
   (pattern (~seq #:recursive) #:attr ast #t)
   (pattern (~seq) #:attr ast #f))
 
-(define-syntax-class CTHeader
+(define-syntax-class TableWColumns
   #:attributes (ast)
   (pattern name:Ident
            #:attr ast (cons ($ name.ast) #f))
