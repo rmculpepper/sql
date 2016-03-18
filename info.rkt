@@ -5,7 +5,7 @@
 
 (define collection "sql")
 (define deps
-  '("base"
+  '(["base" #:version "6.3"]
     "rackunit-lib"
     "db-lib"))
 (define build-deps

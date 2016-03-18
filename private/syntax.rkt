@@ -6,7 +6,7 @@
          racket/class
          racket/match
          db/base
-         unstable/custom-write
+         racket/struct
          "emit.rkt")
 (provide (all-defined-out))
 
