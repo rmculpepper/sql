@@ -205,6 +205,8 @@
   (or (scalar:app? x)
       (scalar:table? x)
       (scalar:placeholder? x)
+      (scalar:case? x)
+      (scalar:case-of? x)
       (name-ast? x)
       (exact-integer? x)
       (string? x)

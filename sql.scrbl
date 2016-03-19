@@ -130,7 +130,13 @@ value, or an application of some function or operator.
              exact-integer
              string
              (operator-id scalar-expr ...)
-             (name scalar-expr ...)]
+             (name scalar-expr ...)
+             (@#,lit{case} [scalar-expr scalar-expr] ...)
+             (@#,lit{case} [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
+             (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ...)
+             (@#,lit{case} #:of scalar-expr
+               [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
+             table-expr]
 ]
 
 @;{
@@ -145,6 +151,14 @@ table.column
 (coalesce x y z)
 ]
 }
+
+A @tt{CASE} expression:
+@racketblock[
+(case [(= x 0) "zero"] [else "nonzero"]) 
+(code:comment "CASE WHEN x = 0 THEN 'zero' ELSE 'nonzero' END")
+(case #:of x [0 "zero"] [else "nonzero"])
+(code:comment "CASE x WHEN 0 THEN 'zero' ELSE 'nonzero' END")
+]
 
 The following @svar[operator-id]s are handled specially:
 

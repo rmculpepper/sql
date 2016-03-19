@@ -15,7 +15,6 @@ TO DO
   - check aggregates
 
 - additional kinds of ScalarExpr:
-  - CASE {WHEN cond THEN result}* {ELSE result}? END
   - EXISTS (subquery)
   - expr IN (subquery)
   - expr NOT IN (subquery)
