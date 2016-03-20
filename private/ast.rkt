@@ -185,14 +185,14 @@
 ;; - Name
 ;; - ExactInteger
 ;; - String
-;; - (scalar:app Op (Listof ScalarExpr))
+;; - (scalar:app (U Name Symbol) (Listof ScalarExpr))
 ;; - (scalar:table TableExpr)
 ;; - (scalar:case (Listof (cons ScalarExpr ScalarExpr)) ScalarExpr)
 ;; - (scalar:case-of ScalarExpr (Listof (cons ScalarExpr ScalarExpr)) ScalarExpr)
 ;; - (scalar:exists TableExpr)
 ;; - (scalar:in-table ScalarExpr TableExpr)
 ;; - (scalar:in-values ScalarExpr (Listof ScalarExpr))
-;; - (scalar:some/all Op ScalarExpr (U 'some 'all) (U TableExpr ScalarExpr))
+;; - (scalar:some/all Symbol ScalarExpr (U 'some 'all) (U TableExpr ScalarExpr))
 ;; - (scalar:placeholder)
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (U String (list 'unquote Syntax)))
@@ -368,17 +368,19 @@
 (struct qname (qual id) #:prefab)
 
 (define (name-ast? x)
-  (or (ident-ast? x)
-      (qname? x)))
+  (or (qname? x)
+      (ident-ast? x)))
 
 ;; An Ident is one of
-;; - Symbol               -- to be transmitted unquoted
+;; - (id:normal Symbol)   -- to be transmitted unquoted
 ;; - (id:literal String)  -- to be quoted when emitted
+(struct id:normal (s) #:prefab)
 (struct id:quoted (s) #:prefab)
 
 (define (ident-ast? x)
-  (or (symbol? x)
+  (or (id:normal? x)
       (id:quoted? x)))
 
+;; SQL-regular-id? : String -> Boolean
 (define (SQL-regular-id? s)
   (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9_]*$" s))

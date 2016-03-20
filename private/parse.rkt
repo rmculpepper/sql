@@ -376,7 +376,7 @@
   (pattern (~seq #:corresponding)
            #:attr corr 'auto)
   (pattern (~seq #:corresponding-by column:Ident ...)
-           #:attr corr (syntax->datum #'(column ...)))
+           #:attr corr ($ column.ast))
   (pattern (~seq)
            #:attr corr #f))
 
@@ -387,8 +387,8 @@
 (define-splicing-syntax-class join-on-clause
   (pattern (~seq #:natural)
            #:attr on '(natural))
-  (pattern (~seq #:using column:id ...)
-           #:attr on `(using ,(syntax->datum #'(column ...))))
+  (pattern (~seq #:using column:Ident ...)
+           #:attr on `(using ,($ column.ast)))
   (pattern (~seq #:on condition:ScalarExpr)
            #:attr on `(on ,($ condition.ast))))
 
@@ -416,7 +416,6 @@
   (pattern s:str
            #:attr ast (syntax-e #'s))
   (pattern :Name)
-  (pattern :AllFrom)
   (pattern ?
            #:attr ast (scalar:placeholder))
   (pattern te:TableExpr
@@ -473,34 +472,20 @@
   #:datum-literals (Ident: Name:)
   (pattern x:non-special-id
            #:attr ast (parse-name (syntax-e #'x))
-           #:when ($ ast)) ;; FIXME: need better error message!
+           #:fail-unless ($ ast) "not a SQL regular identifier or qualified name")
   (pattern (Ident: x:id)
-           #:attr ast (syntax-e #'x))
+           #:attr ast (id:normal (syntax-e #'x)))
   (pattern (Ident: x:str)
            #:attr ast (id:quoted (syntax-e #'x)))
   (pattern (Name: part:Name ...+)
            #:attr ast (name-list->name ($ part.ast))))
 
-(define-syntax-class AllFrom
-  #:attributes (ast)
-  #:datum-literals (Name: *)
-  #:description "Name"  ;; FIXME: figure out error reporting
-  (pattern x:non-special-id
-           #:attr m (regexp-match #rx"^(.*)[.][*]$" (symbol->string (syntax-e #'x)))
-           #:attr ast (let* ([q (and ($ m) (parse-name (cadr ($ m))))])
-                        (and q (qname q '*)))
-           #:when ($ ast))
-  (pattern (Name: *)
-           #:attr ast '*)
-  (pattern (Name: part:Name ...+ *)
-           #:attr ast (let ([q (name-list->name ($ part.ast))])
-                        (qname q '*))))
-
 (define-syntax-class non-special-id
   #:description #f
   #:attributes ()
   (pattern x:id
-           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
+           #:fail-when (special-symbol? (syntax-e #'x))
+                       "identifier is reserved word"
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"))
 
@@ -536,8 +521,9 @@
               (symbol-list->name (map string->symbol parts)))]))
 
 (define (symbol-list->name parts)
-  (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])
-    (qname qual part)))
+  (let ([parts (map id:normal parts)])
+    (for/fold ([qual (car parts)]) ([part (in-list (cdr parts))])
+      (qname qual part))))
 
 (define (name-list->name ns)
   (define (prepend qual n)

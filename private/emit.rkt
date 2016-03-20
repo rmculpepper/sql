@@ -353,12 +353,10 @@
          sql]
         [(scalar:app op args)
          (define formatter
-           (cond [(not (symbol? op))
+           (cond [(name-ast? op)
                   (fun-op (emit-name op))]
                  [(op-formatter op)
                   => values]
-                 [(SQL-regular-id? (symbol->string op))
-                  (fun-op (emit-name op))]
                  [else
                   (error 'emit-scalar-expr "unknown operator\n  operator: ~e" op)]))
          (apply formatter (for/list ([a (in-list args)]) (emit-scalar-expr a)))]
@@ -380,14 +378,14 @@
             "))")]
         [(scalar:some/all op e1 quant e2)
          (J "(" (emit-scalar-expr e1) " "
-            (format "~a" op) (case quant [(some) " SOME ("] [(all) " ALL ("])
+            (emit-operator-symbol op) (case quant [(some) " SOME ("] [(all) " ALL ("])
             (if (table-expr-ast? e2) (emit-table-expr e2) (emit-scalar-expr e2))
             "))")]
         [(scalar:table te)
          (J "(" (emit-table-expr te) ")")]
         [(scalar:placeholder)
          "?"]
-        [(or (? symbol?) (? qname?))
+        [(? name-ast? e)
          (emit-name e)]
         [(? string?)
          (J "'" (regexp-replace* #rx"'" e "''") "'")]
@@ -410,12 +408,14 @@
       (match id
         [(id:quoted (? string? s))
          (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
-        [(? symbol? s)
+        [(id:normal (? symbol? s))
          (symbol->string s)]))
 
     (define/public (emit-ident-commalist ids)
       (J-join (for/list ([id (in-list ids)]) (emit-ident id)) ", "))
 
+    (define/public (emit-operator-symbol sym)
+      (symbol->string sym))
     ))
 
 (define next-dollar-placeholder (make-parameter 1))

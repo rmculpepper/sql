@@ -36,3 +36,8 @@
 (test #'(insert #:into T #:set [a 1] [b 2] [c 3]))
 
 (test #'(update T #:set [a (+ a 1)] [b (- b 1)] #:where (< T.a 0)))
+
+
+;; ((Name: position) 1 2 3) => position(1, 2, 3), not POSITION(1 IN 2)
+
+;; (Ident: x.y) ???
