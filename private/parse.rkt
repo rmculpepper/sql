@@ -396,33 +396,29 @@
 ;; Scalar Expressions
 
 (define-syntax-class ScalarExpr
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:description "scalar expression"
   #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in)
-  (pattern (ScalarExpr:AST ~! u)
-           #:declare u (UnquoteExpr/c #'scalar-expr?)
+  (pattern (ScalarExpr:AST ~! (~var u (UnquoteExpr/c #'scalar-expr?)))
            #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
-  (pattern (~and (case ~! . _) ce:ScalarExpr/Case)
-           #:attr ast ($ ce.ast))
-  (pattern (unquote ~! e:expr)
-           #:attr ast (scalar:unquote #'e))
+  ;; ----
+  (pattern n:exact-integer              #:attr ast (syntax-e #'n))
+  (pattern s:str                        #:attr ast (syntax-e #'s))
+  (pattern ?                            #:attr ast (scalar:placeholder))
+  (pattern (unquote ~! e:expr)          #:attr ast (scalar:unquote #'e))
+  (pattern :Name)
+  ;; ----
   (pattern (exists ~! te:TableExpr)
            #:attr ast (scalar:exists ($ te.ast)))
   (pattern (~and (in ~! . _) :ScalarExpr/In))
-  (pattern n:exact-integer
-           #:attr ast (syntax-e #'n))
-  (pattern s:str
-           #:attr ast (syntax-e #'s))
-  (pattern :Name)
-  (pattern ?
-           #:attr ast (scalar:placeholder))
+  (pattern (~and (case ~! . _) :ScalarExpr/Case))
   (pattern te:TableExpr
            #:attr ast (scalar:table ($ te.ast)))
-  (pattern (op:OperatorSymbol e1:ScalarExpr #:some (~or e2:TableExpr e2:ScalarExpr))
+  (pattern (op:OperatorSymbol e1:ScalarExpr #:some ~! (~or e2:TableExpr e2:ScalarExpr))
            #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'some ($ e2.ast)))
-  (pattern (op:OperatorSymbol e1:ScalarExpr #:all (~or e2:TableExpr e2:ScalarExpr))
+  (pattern (op:OperatorSymbol e1:ScalarExpr #:all ~! (~or e2:TableExpr e2:ScalarExpr))
            #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'all ($ e2.ast)))
   (pattern (op:Operator ~! arg:ScalarExpr ...)
            #:fail-unless (arity-includes? ($ op.arity) (length (syntax->list #'(arg ...))))

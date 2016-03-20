@@ -129,33 +129,71 @@ value, or an application of some function or operator.
 [scalar-expr name
              exact-integer
              string
-             (operator-id scalar-expr ...)
-             (name scalar-expr ...)
              (@#,lit{exists} table-expr)
              (@#,lit{in} scalar-expr #:from table-expr)
              (@#,lit{in} scalar-expr #:values scalar-expr ...)
+             (@#,lit{case} [scalar-expr scalar-expr] ... maybe-else)
+             (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ... maybe-else)
              (compare-operator scalar-expr #:some table-expr)
              (compare-operator scalar-expr #:all table-expr)
-             (@#,lit{case} [scalar-expr scalar-expr] ...)
-             (@#,lit{case} [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
-             (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ...)
-             (@#,lit{case} #:of scalar-expr
-               [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
+             (operator/special scalar-expr ...)
+             (name scalar-expr ...)
              table-expr]
 ]
 
-A @tt{CASE} expression:
+@specsubform[(@#,lit{exists} table-expr)]{
+
+Produces an @tt{EXISTS} expression:
+
+@racketblock[
+(exists (select 1 #:from t))    (code:comment "EXISTS (SELECT 1 FROM t)")
+]}
+
+@specsubform[(code:line
+             (@#,lit{in} scalar-expr #:from table-expr)
+             (@#,lit{in} scalar-expr #:values scalar-expr ...))]{
+
+There are two forms of @tt{IN} expression, one for table expressions
+and one for lists of scalar expressions:
+
+@racketblock[
+(in x #:from (select y #:from ys))  (code:comment "x IN (SELECT y FROM ys)")
+(in x #:values 1 2 3)               (code:comment "x IN (1, 2, 3)")
+]}
+
+@specsubform[(code:line
+             (@#,lit{case} [scalar-expr scalar-expr] ... maybe-else)
+             (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ... maybe-else))]{
+
+There are two forms of @tt{CASE} expression, one like Racket's
+@racket[cond] and the other like Racket's @racket[case]:
+
 @racketblock[
 (case [(= x 0) "zero"] [else "no"])  (code:comment "CASE WHEN x = 0 THEN 'zero' ELSE 'no' END")
 (case #:of x [0 "zero"] [else "no"]) (code:comment "CASE x WHEN 0 THEN 'zero' ELSE 'no' END")
-]
+]}
 
-The following @svar[operator-id]s are handled specially:
+@specsubform[(code:line
+             (compare-operator scalar-expr #:some table-expr)
+             (compare-operator scalar-expr #:all table-expr))]{
+
+Produces an ``all-or-any'' comparison between a scalar (or row)
+expression and a table expression.
+
+@racketblock[
+(= x #:some (select y #:from ys))   (code:comment "x = SOME (SELECT y FROM ys)")
+(< x #:all (select y #:from ys))    (code:comment "x < ALL (select y FROM ys)")
+]}
+
+@specsubform[(operator/special scalar-expr ...)]{
+
+Used to represent uses of SQL operators, standard SQL functions that
+don't use ordinary function-call notation, and a few other special
+cases.
 
 @itemlist[
 
-@item{The @tt{CAST} and @tt{EXTRACT} special forms are written as
-normal two-argument functions:
+@item{The @tt{CAST} and @tt{EXTRACT} special functions:
 
 @racketblock[
 (cast "2015-03-15" DATE)      (code:comment "CAST('2015-03-15' AS DATE)")
@@ -167,8 +205,7 @@ Note that as above, types and fields are written as ``scalar
 expressions'', in a mild abuse of syntax.
 }
 
-@item{The @tt{OVERLAY}, @tt{POSITION}, and @tt{SUBSTRING} functions
-are written as normal functions:
+@item{The @tt{OVERLAY}, @tt{POSITION}, and @tt{SUBSTRING} functions:
 
 @racketblock[
 (overlay "abc" "z" 2 1)       (code:comment "OVERLAY('abc' PLACING 'z' FROM 2 FOR 1)")
@@ -179,9 +216,9 @@ are written as normal functions:
 @item{The @tt{TRIM} function is written using one of the following variants:
 
 @racketblock[
-(trim-leading "z" "zzabc")  (code:comment "TRIM(LEADING 'z' FROM 'zzabc')")
-(trim-trailing "z" "abczz") (code:comment "TRIM(TRAILING 'z' FROM 'abczz')")
-(trim-both "z" "zzabczz")   (code:comment "TRIM(BOTH 'z' FROM 'zzabczz')")
+(trim-leading "z" "zzabc")    (code:comment "TRIM(LEADING 'z' FROM 'zzabc')")
+(trim-trailing "z" "abczz")   (code:comment "TRIM(TRAILING 'z' FROM 'abczz')")
+(trim-both "z" "zzabczz")     (code:comment "TRIM(BOTH 'z' FROM 'zzabczz')")
 ]}
 
 @item{The syntax @tt{COUNT(*)} can be written as follows:
@@ -190,18 +227,25 @@ are written as normal functions:
 (count-all)                   (code:comment "COUNT(*)")
 ]}
 
-@item{The @tt{+}, @tt{-}, @tt{*}, and @tt{/} operators are chaining
-infix binary operators written as variadic functions:
+@item{The chaining arithmetic operators @tt{+}, @tt{-}, @tt{*}, and @tt{/}:
 
 @racketblock[
 (+ 1 2 3 4)                   (code:comment "1 + 2 + 3 + 4")
 ]}
 
-@item{The SQL chaining infix binary operator @tt{||} can be written as
+@item{The chaining infix logical operators @tt{AND} and @tt{OR}:
+
+@racketblock[
+(and x y z)                   (code:comment "x AND y AND z")
+(or x y z)                    (code:comment "x OR y OR z")
+]}
+
+@item{The chaining infix binary operator @tt{||} can be written as
 @racket[\|\|] or as @racket[||]; the latter reads as the empty symbol.
 
 @racketblock[
 (|| last ", " first)          (code:comment "last || ', ' || first")
+(\|\| last ", " first)        (code:comment "last || ', ' || first")
 ]}
 
 @item{Any identifier consisting of only characters in
@@ -210,12 +254,13 @@ binary operator:
 
 @racketblock[
 (< x y)                       (code:comment "x < y")
-(%#! 1 2)                     (code:comment "1 %#! 2")
+(%&! 1 2)                     (code:comment "1 %&! 2")
 ]}
 
-@item{The following operators are written like function calls:
+@item{The following operators:
 
 @racketblock[
+(not x)                       (code:comment "NOT x")
 (is-null x)                   (code:comment "x IS NULL")
 (is-not-null x)               (code:comment "x IS NOT NULL")
 (is-true x)                   (code:comment "x IS TRUE")
@@ -226,15 +271,10 @@ binary operator:
 (is-not-unknown x)            (code:comment "x IS NOT UNKNOWN")
 (collate x utf8)              (code:comment "x COLLATE utf8")
 (between-and 5 1 10)          (code:comment "5 BETWEEN 1 AND 10")
-(not-between-and 0 1 10)      (code:comment "0 BETWEEN 1 AND 10")
 (distinct-from x y)           (code:comment "x DISTINCT FROM y")
-(not-distinct-from x y)       (code:comment "x NOT DISTINCT FROM y")
 (like "abc" "a%")             (code:comment "'abc' LIKE 'a%'")
-(not-like "abc" "z%")         (code:comment "'abc' LIKE 'z%'")
 (ilike "aBC" "ab_")           (code:comment "'aBC' ILIKE 'ab_'")
-(not-ilike "aBC" "zb_")       (code:comment "'aBC' ILIKE 'zb_'")
 (similar-to "abc" "(a|z)%")   (code:comment "'abc' SIMILAR TO '(a|z)%'")
-(not-similar-to "" "(a|z)%")  (code:comment "'' NOT SIMILAR TO '(a|z)%'")
 ]}
 
 @item{Field selection is written as a regular identifier (or @tt{*})
@@ -245,15 +285,15 @@ prefixed by a dot.
 (.* table1)                   (code:comment "(table1).*")
 (.*)                          (code:comment "*")
 ]}
+]}
 
-@item{Other names are treated as ordinary functions; no arity checking
-is done.
+@specsubform[(name scalar-expr ...)]{
 
+Represents an ordinary function call; no arity checking is done.
 @racketblock[
 (coalesce x y z)              (code:comment "coalesce(x, y, z)")
 ]}
 
-]
 
 @deftogether[[
 @defform[(scalar-expr-qq scalar-expr)]

@@ -283,10 +283,7 @@
     ,(infix-op-entry '/ " / ")
     ,(infix-op-entry 'and " AND ")
     ,(infix-op-entry 'or  " OR ")
-    ;; Treat any other symbol composed of just the following
-    ;; characters as a non-chaining binary operator.
-    [,operator-symbol-rx
-     ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
+    [not            1 ,(prefix-op "NOT ")]
     [is-null        1 ,(postfix-op " IS NULL")]
     [is-not-null    1 ,(postfix-op " IS NOT NULL")]
     [is-true        1 ,(postfix-op " IS TRUE")]
@@ -297,15 +294,14 @@
     [is-not-unknown 1 ,(postfix-op " IS NOT UNKNOWN")]
     [collate        2 ,(infix-op   " COLLATE ")]
     [distinct-from  2 ,(infix-op " DISTINCT FROM ")]
-    [not-distinct-from 2 ,(infix-op " NOT DISTINCT FROM ")]
-    [between-and       3 ,(outfix-op '(" BETWEEN " " AND "))]
-    [not-between-and   3 ,(outfix-op '(" NOT BETWEEN " " AND "))]
+    [between-and    3 ,(outfix-op '(" BETWEEN " " AND "))]
     [like       (2 3) ,(outfix-op '(" LIKE " " ESCAPE "))]
-    [not-like   (2 3) ,(outfix-op '(" NOT LIKE " " ESCAPE "))]
     [ilike      (2 3) ,(outfix-op '(" ILIKE " " ESCAPE "))]
-    [not-ilike  (2 3) ,(outfix-op '(" NOT ILIKE " " ESCAPE "))]
     [similar-to (2 3) ,(outfix-op '(" SIMILAR TO " " ESCAPE "))]
-    [not-similar-to (2 3) ,(outfix-op '(" NOT SIMILAR TO " " ESCAPE "))]
+    ;; Treat any other symbol composed of just the following
+    ;; characters as a non-chaining binary operator.
+    [,operator-symbol-rx
+     ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
 
     ;; Field reference
     ;; (.field x)    "x.field"
