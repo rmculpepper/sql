@@ -425,16 +425,13 @@
            #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'some ($ e2.ast)))
   (pattern (op:OperatorSymbol e1:ScalarExpr #:all (~or e2:TableExpr e2:ScalarExpr))
            #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'all ($ e2.ast)))
-  (pattern (op:Op arg:ScalarExpr ...)
-           #:fail-unless (check-arity ($ op.ast)
-                                      (length (syntax->list #'(arg ...))))
-                         "wrong arity for operator use"
+  (pattern (op:Operator ~! arg:ScalarExpr ...)
+           #:fail-unless (arity-includes? ($ op.arity) (length (syntax->list #'(arg ...))))
+                         (format "wrong arity for operator or special function\n  expected: ~a"
+                                 (arity->string ($ op.arity)))
+           #:attr ast (scalar:app ($ op.ast) ($ arg.ast)))
+  (pattern (op:Name arg:ScalarExpr ...)
            #:attr ast (scalar:app ($ op.ast) ($ arg.ast))))
-
-(define-syntax-class Op
-  #:attributes (ast)
-  (pattern :OperatorId)
-  (pattern :Name))
 
 (define-syntax-class ScalarExpr/Case
   #:attributes (ast)
@@ -513,12 +510,12 @@
            #:fail-when (qname? ($ x.ast)) "expected unqualified name"
            #:attr ast ($ x.ast)))
 
-(define-syntax-class OperatorId
-  #:attributes (ast)
+(define-syntax-class Operator
+  #:attributes (ast arity)
   #:description #f
   (pattern x:id
-           #:when (op-entry (syntax-e #'x))
-           #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
+           #:attr arity (op-arity (syntax-e #'x))
+           #:when ($ arity)
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))

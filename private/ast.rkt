@@ -341,19 +341,24 @@
                   => (lambda (m) (cons op (apply (cadar ops) m)))]
                  [else (loop (cdr ops))])])))
 
+(define (op-arity op-name)
+  (cond [(op-entry op-name) => cadr]
+        [else #f]))
+
 (define (op-formatter op-name)
   (cond [(op-entry op-name) => caddr]
         [else #f]))
-
-(define (check-arity op-name n-args)
-  (cond [(op-entry op-name)
-         => (lambda (entry) (arity-includes? (cadr entry) n-args))]
-        [else #t]))
 
 (define (arity-includes? a n)
   (cond [(box? a) (>= n (unbox a))]
         [(list? a) (member n a)]
         [else (= n a)]))
+
+(define (arity->string a)
+  (cond [(box? a) (format "~a or more arguments" (unbox a))]
+        [(list? a) (string-join (map ~a a) ", " #:before-last ", or" #:after-last "arguments")]
+        [(= a 1) "1 argument"]
+        [else (format "~a arguments" a)]))
 
 ;; ----------------------------------------
 
