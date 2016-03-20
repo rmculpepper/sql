@@ -499,6 +499,7 @@
   #:attributes (ast)
   #:description #f
   (pattern x:id
+           #:when (op-entry (syntax-e #'x))
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"
