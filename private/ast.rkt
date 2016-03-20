@@ -182,34 +182,40 @@
 ;; Treat types as scalar expressions too...
 
 ;; A ScalarExpr is one of
+;; - Name
+;; - ExactInteger
+;; - String
 ;; - (scalar:app Op (Listof ScalarExpr))
 ;; - (scalar:table TableExpr)
 ;; - (scalar:case (Listof (cons ScalarExpr ScalarExpr)) ScalarExpr)
 ;; - (scalar:case-of ScalarExpr (Listof (cons ScalarExpr ScalarExpr)) ScalarExpr)
+;; - (scalar:exists TableExpr)
+;; - (scalar:in ScalarExpr TableExpr)
 ;; - (scalar:placeholder)
-;; - Name
-;; - ExactInteger
-;; - String
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (U String (list 'unquote Syntax)))
 ;; * (scalar:unquote Syntax)  -- to be converted to placeholder
 (struct scalar:app (op args) #:prefab)
-(struct scalar:placeholder () #:prefab)
 (struct scalar:table (te) #:prefab)
 (struct scalar:case (cases else) #:prefab)
 (struct scalar:case-of (value cases else) #:prefab)
+(struct scalar:exists (te) #:prefab)
+(struct scalar:in (e1 e2) #:prefab)
+(struct scalar:placeholder () #:prefab)
 (struct scalar:inject (s) #:prefab)
 (struct scalar:unquote (expr) #:prefab)
 
 (define (scalar-expr-ast? x)
-  (or (scalar:app? x)
-      (scalar:table? x)
-      (scalar:placeholder? x)
-      (scalar:case? x)
-      (scalar:case-of? x)
-      (name-ast? x)
+  (or (name-ast? x)
       (exact-integer? x)
       (string? x)
+      (scalar:app? x)
+      (scalar:table? x)
+      (scalar:case? x)
+      (scalar:case-of? x)
+      (scalar:exists? x)
+      (scalar:in? x)
+      (scalar:placeholder? x)
       (scalar:inject? x)))
 
 (define ((fun-op op-string #:arg-sep [arg-sep ", "]) . args)

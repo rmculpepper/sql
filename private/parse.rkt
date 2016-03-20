@@ -396,7 +396,7 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case)
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in any all some)
   (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
@@ -406,6 +406,10 @@
            #:attr ast ($ ce.ast))
   (pattern (unquote ~! e:expr)
            #:attr ast (scalar:unquote #'e))
+  (pattern (exists ~! te:TableExpr)
+           #:attr ast (scalar:exists ($ te.ast)))
+  (pattern (in ~! e1:ScalarExpr e2:TableExpr)
+           #:attr ast (scalar:in ($ e1.ast) ($ e2.ast)))
   (pattern n:exact-integer
            #:attr ast (syntax-e #'n))
   (pattern s:str
@@ -540,7 +544,8 @@
     select insert update delete
     as values values* union except intersect
     cross-join inner-join left-join right-join full-join union-join
-    from as where ;; to catch forgotten "#:" mistakes
+    from where ;; to catch forgotten "#:" mistakes
+    in all any some else
     ))
 
 (define (SQL-compound-regular-id? s)

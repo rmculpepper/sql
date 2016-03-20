@@ -131,6 +131,8 @@ value, or an application of some function or operator.
              string
              (operator-id scalar-expr ...)
              (name scalar-expr ...)
+             (@#,lit{exists} table-expr)
+             (@#,lit{in} scalar-expr table-expr)
              (@#,lit{case} [scalar-expr scalar-expr] ...)
              (@#,lit{case} [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
              (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ...)
@@ -139,25 +141,10 @@ value, or an application of some function or operator.
              table-expr]
 ]
 
-@;{
-The following are examples of scalar expressions:
-
-@racketblock[
-table.column
-42
-"Salutations"
-(log (+ 1 p))
-(and (> x 10) (< x 55))
-(coalesce x y z)
-]
-}
-
 A @tt{CASE} expression:
 @racketblock[
-(case [(= x 0) "zero"] [else "nonzero"]) 
-(code:comment "CASE WHEN x = 0 THEN 'zero' ELSE 'nonzero' END")
-(case #:of x [0 "zero"] [else "nonzero"])
-(code:comment "CASE x WHEN 0 THEN 'zero' ELSE 'nonzero' END")
+(case [(= x 0) "zero"] [else "no"])  (code:comment "CASE WHEN x = 0 THEN 'zero' ELSE 'no' END")
+(case #:of x [0 "zero"] [else "no"]) (code:comment "CASE x WHEN 0 THEN 'zero' ELSE 'no' END")
 ]
 
 The following @svar[operator-id]s are handled specially:
