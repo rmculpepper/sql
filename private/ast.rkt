@@ -192,7 +192,7 @@
 ;; - (scalar:exists TableExpr)
 ;; - (scalar:in-table ScalarExpr TableExpr)
 ;; - (scalar:in-values ScalarExpr (Listof ScalarExpr))
-;; - (scalar:some/all Boolean ScalarExpr Op (U TableExpr ScalarExpr))
+;; - (scalar:some/all Op ScalarExpr (U 'some 'all) (U TableExpr ScalarExpr))
 ;; - (scalar:placeholder)
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (U String (list 'unquote Syntax)))
@@ -204,7 +204,7 @@
 (struct scalar:exists (te) #:prefab)
 (struct scalar:in-table (e1 e2) #:prefab)
 (struct scalar:in-values (e1 es2) #:prefab)
-(struct scalar:some/all (all? e1 op e2) #:prefab)
+(struct scalar:some/all (op e1 quant e2) #:prefab)
 (struct scalar:placeholder () #:prefab)
 (struct scalar:inject (s) #:prefab)
 (struct scalar:unquote (expr) #:prefab)
@@ -250,17 +250,17 @@
 
 ;; An OpEntry is one of
 ;; - (list Symbol Arity Formatter)
-;; - (list Regexp (Symbol -> (list Arity Formatter)))
+;; - (list Regexp (RxMatch -> (list Arity Formatter)))
 ;; where Arity     = Nat | (Nat ...) | (Box Nat) -- latter indicates arity at least
 ;;       Formatter = String ... -> String
-
-;; (define operator-symbol-rx #rx"^[-~!@#%^&*_=+|<>?/]+$")
 
 (define operator-symbol-rx
   ;; disallow "--"
   (let ([chars "[~!@#%^&*_=+|<>?/]"])
     (regexp (format "^(?:~a|[-](?:~a|$))+$" chars chars))))
 
+(define (operator-symbol? sym)
+  (regexp-match? operator-symbol-rx (symbol->string sym)))
 
 (define standard-ops
   `(;; Functions

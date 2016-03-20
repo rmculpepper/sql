@@ -378,9 +378,9 @@
          (J "(" (emit-scalar-expr e1) " IN ("
             (J-join (for/list ([e2 (in-list es2)]) (emit-scalar-expr e2)) ", ")
             "))")]
-        [(scalar:some/all all? e1 op e2)
+        [(scalar:some/all op e1 quant e2)
          (J "(" (emit-scalar-expr e1) " "
-            (format "~a" op) (if all? "ALL (" "SOME (")
+            (format "~a" op) (case quant [(some) " SOME ("] [(all) " ALL ("])
             (if (table-expr-ast? e2) (emit-table-expr e2) (emit-scalar-expr e2))
             "))")]
         [(scalar:table te)

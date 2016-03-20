@@ -398,7 +398,7 @@
 (define-syntax-class ScalarExpr
   #:attributes (ast)
   #:description "scalar expression"
-  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in all some)
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in)
   (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
@@ -411,10 +411,6 @@
   (pattern (exists ~! te:TableExpr)
            #:attr ast (scalar:exists ($ te.ast)))
   (pattern (~and (in ~! . _) :ScalarExpr/In))
-  (pattern (some ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
-           #:attr ast (scalar:some/all #f ($ e1.ast) ($ op.ast) ($ e2.ast)))
-  (pattern (all ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
-           #:attr ast (scalar:some/all #t ($ e1.ast) ($ op.ast) ($ e2.ast)))
   (pattern n:exact-integer
            #:attr ast (syntax-e #'n))
   (pattern s:str
@@ -425,6 +421,10 @@
            #:attr ast (scalar:placeholder))
   (pattern te:TableExpr
            #:attr ast (scalar:table ($ te.ast)))
+  (pattern (op:OperatorSymbol e1:ScalarExpr #:some (~or e2:TableExpr e2:ScalarExpr))
+           #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'some ($ e2.ast)))
+  (pattern (op:OperatorSymbol e1:ScalarExpr #:all (~or e2:TableExpr e2:ScalarExpr))
+           #:attr ast (scalar:some/all ($ op.ast) ($ e1.ast) 'all ($ e2.ast)))
   (pattern (op:Op arg:ScalarExpr ...)
            #:fail-unless (check-arity ($ op.ast)
                                       (length (syntax->list #'(arg ...))))
@@ -526,7 +526,7 @@
 (define-syntax-class OperatorSymbol
   #:attributes (ast)
   (pattern x:id
-           #:when (regexp-match? operator-symbol-rx (symbol->string (syntax-e #'x)))
+           #:when (operator-symbol? (syntax-e #'x))
            #:attr ast (syntax-e #'x)))
 
 (define (parse-name s)
