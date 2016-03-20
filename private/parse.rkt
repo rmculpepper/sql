@@ -419,7 +419,7 @@
   (pattern (op:Op arg:ScalarExpr ...)
            #:fail-unless (check-arity ($ op.ast)
                                       (length (syntax->list #'(arg ...))))
-                         "wrong arity"
+                         "wrong arity for operator use"
            #:attr ast (scalar:app ($ op.ast) ($ arg.ast))))
 
 (define-syntax-class Op

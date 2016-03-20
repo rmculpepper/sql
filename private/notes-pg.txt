@@ -1,0 +1,354 @@
+Notes on PostgreSQL, mainly for "scalar" expressions
+----------------------------------------------------
+
+== 4.1 Lexical Structure
+   http://www.postgresql.org/docs/9.5/static/sql-syntax-lexical.html
+
+type 'string'                           ?
+'string'::type                          ?
+CAST('string' AS type)                  (cast "string" type-as-if-expr)
+
+operators
+  strings of +-*/<>-~!@#%^&|`?          ?
+  but not --, /*
+  cannot end in + or - (w/ exceptions)
+
+operator precedence rules
+
+
+== 4.2 Value Expressions
+   http://www.postgresql.org/docs/9.5/static/sql-expressions.html
+
+correlation.columnname                  ok
+$1                                      a literal ? or (unquote value)
+expr[subscript-expr]                    (%ref expr subscript-expr)
+expr[lower-expr:higher-expr]            ?
+expr.fieldname                          (.fieldname expr)
+expr.*                                  (.* expr)
+
+expr op expr                            (op expr expr)
+op expr                                 (op expr)
+expr op                                 (op expr)
+
+op := AND                               and
+    | OR                                or
+    | NOT                               not
+    | OPERATOR(schema.operatorname)     ?
+
+function(expr, ...)                     (function expr ...)
+
+aggregate(expr, ...)                    (aggregate expr ...)
+                                        ? -- maybe general (%aggregate _) form?
+
+aggregate forms:
+  ORDER BY                              ?
+  FILTER (WHERE _)                      ?
+  DISTINCT                              ?
+  *                                     specialized (count-all)
+  WITHIN GROUP                          ?
+
+window functions                        ? -- maybe general (%window _) form?
+
+CAST(expr AS type)                      (cast expr type-as-if-expr)
+expr::type                              ?
+typename(expr)                          ?
+
+expr COLLATE collation                  (collate expr collation-as-if-expr)
+
+scalar subquery:
+  (SELECT ....)                         table-expr
+
+ARRAY[expr, ...]                        ? -- maybe (%array expr ...)
+
+ROW(expr, ...)                          (row expr ...)
+(expr, expr, ...)                       (row expr expr ...)
+ROW(t.*)                                (row (.* t))
+
+
+== 4.3 Calling Functions
+   http://www.postgresql.org/docs/9.5/static/sql-syntax-calling-funcs.html
+
+function(expr, ...)                     (function expr ...)
+
+function(a => expr, b => expr)          ?
+function(expr, b => expr)               ?
+
+
+== 7.2 Table Expressions
+   http://www.postgresql.org/docs/9.5/static/queries-table-expressions.html
+
+ONLY table                              ?
+
+T1 join-type T2:
+  CROSS JOIN                            cross-join
+  INNER JOIN                            inner-join
+  LEFT [OUTER] JOIN                     left-join
+  RIGHT [OUTER] JOIN                    right-join
+  FULL [OUTER] JOIN                     full-join
+
+  ON cond-expr                          #:on cond-expr
+  USING (column, ...)                   #:using column ...
+
+table-ref AS alias                      (as table-ref alias)
+table-ref alias                         (as table-ref alias)
+
+subqueries                              yes
+
+table functions                         ?
+
+LATERAL                                 ?
+
+WHERE cond-expr                         #:where cond-expr ...
+
+GROUP BY ident, ...                     #:group-by ident ...
+HAVING cond-expr                        #:having cond-expr ...
+
+GROUPING SETS                           ?
+CUBE                                    ?
+ROLLUP                                  ?
+
+
+== 7.3 Select Lists
+   http://www.postgresql.org/docs/9.5/static/queries-select-lists.html
+
+tbl1.*                                  ? -- maybe (.* tbl1)
+expr AS ident                           (as expr ident)
+
+SELECT DISTINCT _                       ?
+SELECT ALL _                            ?
+
+
+== 7.4 Combining Queries
+   http://www.postgresql.org/docs/9.5/static/queries-union.html
+
+query UNION [ALL] query                 (union table-expr table-expr [#:all])
+query INTERSECT [ALL] query             (intersect table-expr table-expr [#:all])
+query EXCEPT [ALL] query                (except table-expr table-expr [#:all])
+
+
+== 7.5 Sorting Rows
+   http://www.postgresql.org/docs/9.5/static/queries-order.html
+
+ORDER BY                                #:order-by
+expr [ASC|DESC]                         expr [#:asc|#:desc]
+NULLS {FIRST|LAST}                      ?
+
+
+== 7.6 LIMIT and OFFSET
+
+LIMIT nat                               #:limit scalar-expr
+OFFSET nat                              #:offset scalar-expr
+
+
+== 7.7 VALUES Lists
+   http://www.postgresql.org/docs/9.5/static/queries-values.html
+
+VALUES (expr, ...), ...                 #:values, #:values* table-exprs
+
+
+== 7.8 WITH Queries (Common Table Expressions)
+   http://www.postgresql.org/docs/9.5/static/queries-with.html
+
+WITH _ SELECT _                         (with _ (select _))
+
+WITH w/ data-modifying stmts            ? -- maybe
+
+
+== 8.13 XML Type
+   http://www.postgresql.org/docs/9.5/static/datatype-xml.html
+
+XMLPARSE({DOCUMENT|CONTENT} expr)       ?
+XMLSERIALIZE({DOCUMENT|CONTENT) expr)   ?
+
+
+== 9.1 Logical Operators
+   http://www.postgresql.org/docs/9.5/static/functions-logical.html
+
+AND, OR, NOT                            and, or, not
+
+
+== 9.2 Comparison Operators
+   http://www.postgresql.org/docs/9.5/static/functions-comparison.html
+
+<, >, <=, >=, =, <>, !=                 same
+expr BETWEEN expr AND expr              ?
+expr NOT BETWEEN expr AND expr          ?
+expr BETWEEN SYMMETRIC expr AND expr    ?
+
+expr IS NULL                            (is-null expr)
+expr IS NOT NULL                        (is-not-null expr)
+
+expr IS DISTINCT FROM expr              ?
+expr IS NOT DISTINCT FROM expr          ?
+
+expr IS TRUE                            ?
+expr IS NOT TRUE                        ?
+expr IS FALSE                           ?
+expr IS NOT FALSE                       ?
+expr IS UNKNOWN                         ?
+expr IS NOT UNKNOWN                     ?
+
+
+== 9.3 Mathematical Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-math.html
+
++, -, *, /, %, ^                        same
+|/, ||/, !, !!, @, &, |, #, ~, <<, >>   same
+
+
+== 9.4 String Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-string.html
+
+||                                      || or \|\|
+
+overlay(e placing e from e [for e])     ?
+position(expr in expr)                  ?
+substring(expr [from expr] [for expr])  ?
+substring(e from pattern [for escape])  ?
+
+trim([leading|trailing|both] e from e)  ?
+trim([leading|trailing|both] e, e)      ?
+
+
+== 9.6 Bit String Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-bitstring.html
+
+||, &, |, #, ~, <<, >>                  same
+
+
+== 9.7 Pattern Matching
+   http://www.postgresql.org/docs/9.5/static/functions-matching.html
+
+expr LIKE expr                          ?
+expr LIKE expr ESCAPE char              ?
+
+also
+  NOT LIKE
+  ILIKE
+  NOT ILIKE
+  SIMILAR TO
+
+~, ~*, !~, !~*                          same
+
+
+== 9.9 Date/Time Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-datetime.html
+
+EXTRACT(field FROM expr)                ?
+
+(e, e) OVERLAPS (e, e)                  ?
+
+expr AT TIME ZONE expr                  ?
+
+
+== Geometric Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-geometry.html
+
++, -, *, /, #, @-@, @@, ##, <->, &&, <<, >>, &<, &>, <<|, |>>,
+&<|, |&>, <^, >^, ?#, ?-, ?|, ?-|, ?||, @>, <@, ~=
+
+
+== 9.12 Network Address Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-net.html
+
+<, <=, =, >=, >, <>, <<, <<=, >>, >>=, &&, ~, &, |, +, -
+
+
+== 9.13 Text Search Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-textsearch.html
+
+@@, @@@, ||, &&, !!, @>, <@
+
+
+== 9.14 XML Functions
+   http://www.postgresql.org/docs/9.5/static/functions-xml.html
+
+xmlattributes(expr AS ident, ...)       ?
+xmlforest(expr AS ident, ...)           ?
+xmlpi(name ???, expr)                   ?
+xmlroot(expr, version _, standalone _)  ?
+xmlagg(expr [ORDER BY _])               ?
+
+expr IS DOCUMENT                        ?
+
+XMLEXISTS(expr PASSING [BY REF] expr [BY REF])                  ?
+
+
+== 9.15 JSON Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-json.html
+
+->, ->>, #>, #>>
+@>, <@, ?, ?|, ?&, ||, -, #-
+
+
+== 9.17 Conditional Expressions
+   http://www.postgresql.org/docs/9.5/static/functions-conditional.html
+
+CASE {WHEN te THEN re}... [ELSE ee] END           (case [te re] ... [else ee])
+CASE OF ve {WHEN me THEN re}... ELSE ee END       (case #:of ve [me re] ... [else ee])
+
+
+== 9.18 Array Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-array.html
+
+=, <>, <, >, <=, >=, @>, <@, &&, ||
+
+
+== 9.19 Range Functions and Operators
+   http://www.postgresql.org/docs/9.5/static/functions-range.html
+
+=, <>, <, >, <=, >=, @>, <@, &&, <<, >>, &<, &>, -|-, +, *, -
+
+
+== 9.20 Aggregate Functions
+   http://www.postgresql.org/docs/9.5/static/functions-aggregate.html
+
+count(*)                                ? -- maybe (count (.*))
+
+_ WITHIN GROUP (ORDER BY _)             ?
+
+GROUPING(args)                          ?
+
+
+== 9.22 Subquery Expressions 
+   http://www.postgresql.org/docs/9.5/static/functions-subquery.html
+
+EXISTS (subquery)                       (exists table-expr)
+expr IN (subquery)                      (in expr table-expr)
+row-expr IN (subquery)                  ?
+expr NOT IN (subquery)                  (not-in expr table-expr)
+row-expr NOT IN (subquery)              ?
+
+expr op ANY (subquery)                  ?
+expr op SOME (subquery)                 ?
+row-expr op ANY (subquery)              ?
+row-expr op SOME (subquery)             ?
+
+expr op ALL (subquery)                  ?
+row-expr op ALL (subquery)              ?
+
+row-expr op (subquery)                  ?
+
+
+== 9.23 Row and Array Comparisons
+   http://www.postgresql.org/docs/9.5/static/functions-comparisons.html
+
+expr IN (value, ...)                    ?
+expr NOT IN (value, ...)                ?
+
+expr op ANY (array-expr)                ?
+expr op SOME (array-expr)               ?
+expr op ALL (array-expr)                ?
+
+row-expr op row-expr                    (op row-expr row-expr)
+
+row-expr IS DISTINCT FROM row-expr      (is-distinct-from row-expr row-expr)
+row-expr IS NOT DISTINCT FROM row-expr  (is-not-distinct-from row-expr row-expr)
+
+record op record                        (op record record)
+
+
+== 9.24 Set Returning Functions
+   http://www.postgresql.org/docs/9.5/static/functions-srf.html
+
+not allowed as table-expr

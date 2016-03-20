@@ -212,23 +212,49 @@
       (string? x)
       (scalar:inject? x)))
 
-(define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '(1)])
-  (list sym arity (infix-op op-string)))
 (define ((fun-op op-string #:arg-sep [arg-sep ", "]) . args)
   (J op-string "(" (J-join args arg-sep) ")"))
+
+(define ((weird-fun-op op-string arg-prefixes) . args)
+  (J op-string "("
+     (for/list ([prefix (in-list arg-prefixes)] [arg (in-list args)])
+       (if prefix (J prefix arg) arg))
+     ")"))
+
+(define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '#&1])
+  (list sym arity (infix-op op-string)))
 (define ((infix-op separator) . args)
   (J "(" (J-join args separator) ")"))
+
+(define ((outfix-op separators) . args)
+  (J "(" (car args)
+     (for/list ([arg (in-list (cdr args))]
+                [separator (in-list separators)])
+       (J separator arg))
+     ")"))
+(define ((prefix-op prefix) arg)   (J "(" prefix arg ")"))
+(define ((postfix-op postfix) arg) (J "(" arg postfix ")"))
+
 
 ;; An OpEntry is one of
 ;; - (list Symbol Arity Formatter)
 ;; - (list Regexp (Symbol -> (list Arity Formatter)))
-;; where Arity     = Nat | (Nat) -- latter indicates arity at least
+;; where Arity     = Nat | (Nat ...) | (Box Nat) -- latter indicates arity at least
 ;;       Formatter = String ... -> String
 
 (define standard-ops
-  `([cast      2  ,(fun-op "CAST" #:arg-sep " AS ")]
-    ;; [coalesce (2) ,(fun-op "COALESCE")]
-    [extract 2 ,(fun-op "EXTRACT" #:arg-sep " FROM ")]
+  `(;; Functions
+    [cast         2  ,(weird-fun-op "CAST" '(#f " AS "))]
+    [extract      2  ,(weird-fun-op "EXTRACT" '(#f " FROM "))]
+    [overlay   (3 4) ,(weird-fun-op "OVERLAY" '(#f " PLACING " " FROM " " FOR "))]
+    [position     2  ,(weird-fun-op "POSITION" '(#f " IN "))]
+    [substring (2 3) ,(weird-fun-op "SUBSTRING" '(#f "FROM" "FOR"))]
+    [trim-leading  2 ,(lambda (arg1 arg2) (J "TRIM(LEADING "  arg1 " FROM " arg2 ")"))]
+    [trim-trailing 2 ,(lambda (arg1 arg2) (J "TRIM(TRAILING " arg1 " FROM " arg2 ")"))]
+    [trim-both     2 ,(lambda (arg1 arg2) (J "TRIM(BOTH "     arg1 " FROM " arg2 ")"))]
+    [count-all     0 ,(lambda () "COUNT(*)")]
+
+    ;; Operators
     ,(infix-op-entry '|| " || ") ;; HACK! Note "||" reads as the empty symbol!
     ,(infix-op-entry '\|\| " || ")
     ,(infix-op-entry '+ " + ")
@@ -237,33 +263,40 @@
     ,(infix-op-entry '/ " / ")
     ,(infix-op-entry 'and " AND ")
     ,(infix-op-entry 'or  " OR ")
-    [exists 1 ,(lambda (arg) (J "EXISTS " arg))]
-    [not-exists 1 ,(lambda (arg) (J "NOT EXISTS " arg))]
-    [all 1 ,(lambda (arg) (J "ALL " arg))]
-    [distinct 1 ,(lambda (arg) (J "DISTINCT " arg))]
-    [%ref (2) ,(lambda (array . indexes)
-                 (J "(" array ")[" (J-join indexes ",") "]"))]
-    [%tuple (1) ,(lambda args (J "(" (J-join args ",") ")"))]
     ;; Treat any other symbol composed of just the following
-    ;; characters as a binary operator.
-    [#rx"^[-~!@#$%^&*_=+|<>?/]+$"
+    ;; characters as a non-chaining binary operator.
+    [#rx"^[-~!@#%^&*_=+|<>?/]+$"
      ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
-    ;; Auto infix/suffix operators
-    ;; (:like: x y)            "x LIKE y"
-    ;; (:between:and: x y z)   "x BETWEEN y AND z"
-    ;; (:is-null x)            "x IS NULL"
-    ;; (:is-not-null x)        "x IS NOT NULL"
-    [#rx"^[:][-a-zA-Z_]+(?:[:][-a-zA-Z_]+)*([:])?$"
-     ,(lambda (op arg-follows?)
-        (define parts (string-split op #rx"[:]" #:trim? #t))
-        (list (+ (length parts) (if arg-follows? 1 0))
-              (lambda args
-                (J "(" (interleave args (map normalize-op-part parts)) ")"))))]
+    [is-null        1 ,(postfix-op " IS NULL")]
+    [is-not-null    1 ,(postfix-op " IS NOT NULL")]
+    [is-true        1 ,(postfix-op " IS TRUE")]
+    [is-not-true    1 ,(postfix-op " IS NOT TRUE")]
+    [is-false       1 ,(postfix-op " IS FALSE")]
+    [is-not-false   1 ,(postfix-op " IS NOT FALSE")]
+    [is-unknown     1 ,(postfix-op " IS UNKNOWN")]
+    [is-not-unknown 1 ,(postfix-op " IS NOT UNKNOWN")]
+    [collate        2 ,(infix-op   " COLLATE ")]
+    [distinct-from  2 ,(infix-op " DISTINCT FROM ")]
+    [not-distinct-from 2 ,(infix-op " NOT DISTINCT FROM ")]
+    [between-and       3 ,(outfix-op '(" BETWEEN " " AND "))]
+    [not-between-and   3 ,(outfix-op '(" NOT BETWEEN " " AND "))]
+    [like       (2 3) ,(outfix-op '(" LIKE " " ESCAPE "))]
+    [not-like   (2 3) ,(outfix-op '(" NOT LIKE " " ESCAPE "))]
+    [ilike      (2 3) ,(outfix-op '(" ILIKE " " ESCAPE "))]
+    [not-ilike  (2 3) ,(outfix-op '(" NOT ILIKE " " ESCAPE "))]
+    [similar-to (2 3) ,(outfix-op '(" SIMILAR TO " " ESCAPE "))]
+    [not-similar-to (2 3) ,(outfix-op '(" NOT SIMILAR TO " " ESCAPE "))]
+
     ;; Field reference
     ;; (.field x)    "x.field"
     [#rx"^[.]([a-zA-Z_][a-zA-Z_0-9]*)$"
-     ,(lambda (op field-name)
-        (list 1 (lambda (arg) (J "(" arg ")." field-name))))]
+     ,(lambda (op field-name) (list 1 (lambda (arg) (J "(" arg ")." field-name))))]
+    ;; (.*) = "*", (.* t) = "t.*"
+    [.*      (0 1) ,(case-lambda [() "*"] [(arg) (J "(" arg ").*")])]
+
+    ;; Other notations
+    [%ref    #&2 ,(lambda (array . indexes) (J "(" array ")[" (J-join indexes ",") "]"))]
+    [%row    #&2 ,(lambda args (J "(" (J-join args ",") ")"))]
     ))
 
 (define (normalize-op-part s)
@@ -298,7 +331,8 @@
         [else #t]))
 
 (define (arity-includes? a n)
-  (cond [(pair? a) (>= n (car a))]
+  (cond [(box? a) (>= n (unbox a))]
+        [(list? a) (member n a)]
         [else (= n a)]))
 
 ;; ----------------------------------------

@@ -164,8 +164,8 @@ The following @svar[operator-id]s are handled specially:
 
 @itemlist[
 
-@item{The @tt{CAST} and @tt{EXTRACT} functions are written as simple
-two-argument functions:
+@item{The @tt{CAST} and @tt{EXTRACT} special forms are written as
+normal two-argument functions:
 
 @racketblock[
 (cast "2015-03-15" DATE)      (code:comment "CAST('2015-03-15' AS DATE)")
@@ -173,13 +173,35 @@ two-argument functions:
 (extract YEAR dob)            (code:comment "EXTRACT(YEAR FROM dob)")
 ]
 
-Note that as above, types can also be written as ``scalar
+Note that as above, types and fields are written as ``scalar
 expressions'', in a mild abuse of syntax.
 }
 
-@item{The @tt{+}, @tt{-}, @tt{*}, and @tt{/}
-operators are chaining infix binary operators written as variadic
-functions:
+@item{The @tt{OVERLAY}, @tt{POSITION}, and @tt{SUBSTRING} functions
+are written as normal functions:
+
+@racketblock[
+(overlay "abc" "z" 2 1)       (code:comment "OVERLAY('abc' PLACING 'z' FROM 2 FOR 1)")
+(position "c" "abc")          (code:comment "POSITION('c' IN 'abc)")
+(substring "abc" 2 1)         (code:comment "SUBSTRING('abc' FROM 2 FOR 1)")
+]}
+
+@item{The @tt{TRIM} function is written using one of the following variants:
+
+@racketblock[
+(trim-leading "z" "zzabc")  (code:comment "TRIM(LEADING 'z' FROM 'zzabc')")
+(trim-trailing "z" "abczz") (code:comment "TRIM(TRAILING 'z' FROM 'abczz')")
+(trim-both "z" "zzabczz")   (code:comment "TRIM(BOTH 'z' FROM 'zzabczz')")
+]}
+
+@item{The syntax @tt{COUNT(*)} can be written as follows:
+
+@racketblock[
+(count-all)                   (code:comment "COUNT(*)")
+]}
+
+@item{The @tt{+}, @tt{-}, @tt{*}, and @tt{/} operators are chaining
+infix binary operators written as variadic functions:
 
 @racketblock[
 (+ 1 2 3 4)                   (code:comment "1 + 2 + 3 + 4")
@@ -193,30 +215,49 @@ functions:
 ]}
 
 @item{Any identifier consisting of only characters in
-@litchar["~!@#$%^&*-_=+|<>?/"] is considered a non-chaining infix
+@litchar["~!@#%^&*-_=+|<>?/"] is considered a non-chaining infix
 binary operator:
 
 @racketblock[
 (< x y)                       (code:comment "x < y")
-(%#!$ 1 2)                    (code:comment "1 %#!$ 2")
-]
-}
-
-@item{An identifier starting with @litchar{:} and consisting of
-@litchar{:}-separated plain names is treated as a
-multifix operator; the argument positions are indicated by the
-@litchar{:} characters. The operator components are uppercased, and
-@litchar{-} characters are replaced by spaces.
-
-@racketblock[
-(:is-null table.column)       (code:comment "table.column IS NULL")
-(:is-not-null table.column)   (code:comment "table.column IS NOT NULL")
-(:between:and: x y z)         (code:comment "x BETWEEN y AND z")
-(:like: ph_num "555-____")    (code:comment "ph_num LIKE '555-____'")
+(%#! 1 2)                     (code:comment "1 %#! 2")
 ]}
 
-@item{Other names are treated as ordinary functions with unknown
-arity.
+@item{The following operators are written like function calls:
+
+@racketblock[
+(is-null x)                   (code:comment "x IS NULL")
+(is-not-null x)               (code:comment "x IS NOT NULL")
+(is-true x)                   (code:comment "x IS TRUE")
+(is-not-true x)               (code:comment "x IS NOT TRUE")
+(is-false x)                  (code:comment "x IS FALSE")
+(is-not-false x)              (code:comment "x IS NOT FALSE")
+(is-unknown x)                (code:comment "x IS UNKNOWN")
+(is-not-unknown x)            (code:comment "x IS NOT UNKNOWN")
+(collate x utf8)              (code:comment "x COLLATE utf8")
+(between-and 5 1 10)          (code:comment "5 BETWEEN 1 AND 10")
+(not-between-and 0 1 10)      (code:comment "0 BETWEEN 1 AND 10")
+(distinct-from x y)           (code:comment "x DISTINCT FROM y")
+(not-distinct-from x y)       (code:comment "x NOT DISTINCT FROM y")
+(like "abc" "a%")             (code:comment "'abc' LIKE 'a%'")
+(not-like "abc" "z%")         (code:comment "'abc' LIKE 'z%'")
+(ilike "aBC" "ab_")           (code:comment "'aBC' ILIKE 'ab_'")
+(not-ilike "aBC" "zb_")       (code:comment "'aBC' ILIKE 'zb_'")
+(similar-to "abc" "(a|z)%")   (code:comment "'abc' SIMILAR TO '(a|z)%'")
+(not-similar-to "" "(a|z)%")  (code:comment "'' NOT SIMILAR TO '(a|z)%'")
+]}
+
+@item{Field selection is written as a regular identifier (or @tt{*})
+prefixed by a dot.
+
+@racketblock[
+(.city state)                 (code:comment "(state).city")
+(.* table1)                   (code:comment "(table1).*")
+(.*)                          (code:comment "*")
+]}
+
+@item{Other names are treated as ordinary functions; no arity checking
+is done.
 
 @racketblock[
 (coalesce x y z)              (code:comment "coalesce(x, y, z)")
@@ -246,8 +287,8 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 (scalar-expr-ast->string (scalar-expr-qq (coalesce x y z)))
 (scalar-expr-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
 (scalar-expr-ast->string (scalar-expr-qq (extract YEAR dob)))
-(scalar-expr-ast->string (scalar-expr-qq (:is-null table.column)))
-(scalar-expr-ast->string (scalar-expr-qq (:like: ph_num "555-____")))
+(scalar-expr-ast->string (scalar-expr-qq (is-null table.column)))
+(scalar-expr-ast->string (scalar-expr-qq (like ph_num "555-____")))
 (scalar-expr-ast->string (scalar-expr-qq (|| last ", " first)))
 ]
 }

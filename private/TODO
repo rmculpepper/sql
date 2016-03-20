@@ -22,3 +22,16 @@ TO DO
   - expr IN (value ...), etc
   - expr op ANY (subquery)
   - expr op ALL (subquery)
+
+
+- precedence
+  - a scalar expression has a precedence based on how it is generated
+  - when applying an op of precedence prec_op to expressions e... with precedence prec_e...:
+      if prec_e <= prec_op, then wrap e with parens
+      the precedence of the whole expression is prec_op
+  - literals, (expr), and function calls(?) have precedence +inf.0
+  - eg, e + e has the precedence of the + operator, and so on
+  - for generation, actually, pass precedence down:
+    - literals, function calls ignore context-precedence
+    - eg, e + e: generate args with precedence of +
+                 if context-precedence >= precedence of +, wrap result in parens

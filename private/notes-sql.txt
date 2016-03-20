@@ -1,0 +1,51 @@
+Notes on "A Guide to the SQL Standard, 4ed", mainly scalar expressions
+----------------------------------------------------------------------
+
+== 3.3 Key Words, p31
+
+list of reserved words
+
+
+== 7.4 Scalar Operators and Functions, p85
+
++, -, *, /
+
+CAST(expr AS type)                      (cast expr type-as-if-expr)
+POSITION(expr IN expr)                  (position expr expr)
+SUBSTRING(e FROM e FOR e)               (substring e e e)
+TRIM({LEADING|TRAILING|BOTH} e FROM e)  (trim-leading e e), (trim-trailing e e), (trim-both e e)
+
+CASE {WHEN te THEN re}... [ELSE ee] END                 (case [te re] ... [else ee])
+CASE ve {WHEN me THEN re}... [ELSE ee] END              (case #:of ve [te re] ... [else ee])
+
+
+== 7.5 Aggregate Functions, p92
+
+COUNT(*)                                (count-all), (count (.*))
+
+aggregate([ALL|DISTINCT] expr)          ?
+  where aggregate = COUNT | SUM | AVG | MAX | MIN
+
+
+== 12 Conditional Expressions, p165
+
+row-expr defined
+
+expr op expr                            (op row-expr row-expr)
+
+expr BETWEEN expr AND expr              (between-and e1 e2 e3)
+
+expr LIKE expr                          (like e1 e2)
+expr LIKE expr ESCAPE char              (like e1 e2 e3)
+
+expr IN (table-expr)                    ?
+
+expr MATCH [UNIQUE] (table-expr)        ?
+
+expr op ANY (table-expr)                ?
+expr op SOME (table-expr)               ?
+expr op ALL (table-expr)                ?
+
+EXISTS (table-expr)                     ?
+
+UNIQUE (table-expr)                     ?
