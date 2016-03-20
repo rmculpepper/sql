@@ -180,6 +180,7 @@
 
 (define-splicing-syntax-class SelectValues
   #:attributes ([ast 1])
+  #:description #f
   (pattern (~seq :SelectItem ...)))
 
 (define-splicing-syntax-class SelectValuesClause
@@ -396,20 +397,20 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
+  #:description "scalar expression"
   #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in all some)
   (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
-  (pattern (~and (case ~! . _) ce:CaseExpr)
+  (pattern (~and (case ~! . _) ce:ScalarExpr/Case)
            #:attr ast ($ ce.ast))
   (pattern (unquote ~! e:expr)
            #:attr ast (scalar:unquote #'e))
   (pattern (exists ~! te:TableExpr)
            #:attr ast (scalar:exists ($ te.ast)))
-  (pattern (in ~! e1:ScalarExpr e2:TableExpr)
-           #:attr ast (scalar:in ($ e1.ast) ($ e2.ast)))
+  (pattern (~and (in ~! . _) :ScalarExpr/In))
   (pattern (some ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
            #:attr ast (scalar:some/all #f ($ e1.ast) ($ op.ast) ($ e2.ast)))
   (pattern (all ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
@@ -435,8 +436,9 @@
   (pattern :OperatorId)
   (pattern :Name))
 
-(define-syntax-class CaseExpr
+(define-syntax-class ScalarExpr/Case
   #:attributes (ast)
+  #:description "CASE scalar expression"
   #:datum-literals (case else)
   (pattern (case #:of ~! value:ScalarExpr cs:CaseClause ... [else ec:ScalarExpr])
            #:attr ast (scalar:case-of ($ value.ast) ($ cs.ast) ($ ec.ast)))
@@ -447,6 +449,14 @@
   #:attributes (ast)
   (pattern [q:ScalarExpr a:ScalarExpr]
            #:attr ast (cons ($ q.ast) ($ a.ast))))
+
+(define-syntax-class ScalarExpr/In
+  #:attributes (ast)
+  #:description "IN scalar expression"
+  (pattern (_ e1:ScalarExpr #:from e2:TableExpr)
+           #:attr ast (scalar:in-table ($ e1.ast) ($ e2.ast)))
+  (pattern (_ e1:ScalarExpr #:values e2:ScalarExpr ...)
+           #:attr ast (scalar:in-values ($ e1.ast) ($ e2.ast))))
 
 ;; ============================================================
 ;; Names and Identifiers
