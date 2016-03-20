@@ -374,6 +374,11 @@
          (J "EXISTS (" (emit-table-expr te) ")")]
         [(scalar:in e1 e2)
          (J "(" (emit-scalar-expr e1) " IN (" (emit-table-expr e2) "))")]
+        [(scalar:some/all all? e1 op e2)
+         (J "(" (emit-scalar-expr e1) " "
+            (format "~a" op) (if all? "ALL (" "SOME (")
+            (if (table-expr-ast? e2) (emit-table-expr e2) (emit-scalar-expr e2))
+            "))")]
         [(scalar:table te)
          (J "(" (emit-table-expr te) ")")]
         [(scalar:placeholder)

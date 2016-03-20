@@ -191,6 +191,7 @@
 ;; - (scalar:case-of ScalarExpr (Listof (cons ScalarExpr ScalarExpr)) ScalarExpr)
 ;; - (scalar:exists TableExpr)
 ;; - (scalar:in ScalarExpr TableExpr)
+;; - (scalar:some/all Boolean ScalarExpr Op (U TableExpr ScalarExpr))
 ;; - (scalar:placeholder)
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (U String (list 'unquote Syntax)))
@@ -201,6 +202,7 @@
 (struct scalar:case-of (value cases else) #:prefab)
 (struct scalar:exists (te) #:prefab)
 (struct scalar:in (e1 e2) #:prefab)
+(struct scalar:some/all (all? e1 op e2) #:prefab)
 (struct scalar:placeholder () #:prefab)
 (struct scalar:inject (s) #:prefab)
 (struct scalar:unquote (expr) #:prefab)
@@ -215,6 +217,7 @@
       (scalar:case-of? x)
       (scalar:exists? x)
       (scalar:in? x)
+      (scalar:some/all? x)
       (scalar:placeholder? x)
       (scalar:inject? x)))
 
@@ -248,6 +251,14 @@
 ;; where Arity     = Nat | (Nat ...) | (Box Nat) -- latter indicates arity at least
 ;;       Formatter = String ... -> String
 
+;; (define operator-symbol-rx #rx"^[-~!@#%^&*_=+|<>?/]+$")
+
+(define operator-symbol-rx
+  ;; disallow "--"
+  (let ([chars "[~!@#%^&*_=+|<>?/]"])
+    (regexp (format "^(?:~a|[-](?:~a|$))+$" chars chars))))
+
+
 (define standard-ops
   `(;; Functions
     [cast         2  ,(weird-fun-op "CAST" '(#f " AS "))]
@@ -271,7 +282,7 @@
     ,(infix-op-entry 'or  " OR ")
     ;; Treat any other symbol composed of just the following
     ;; characters as a non-chaining binary operator.
-    [#rx"^[-~!@#%^&*_=+|<>?/]+$"
+    [,operator-symbol-rx
      ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
     [is-null        1 ,(postfix-op " IS NULL")]
     [is-not-null    1 ,(postfix-op " IS NOT NULL")]

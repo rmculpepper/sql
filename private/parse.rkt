@@ -396,7 +396,7 @@
 
 (define-syntax-class ScalarExpr
   #:attributes (ast)
-  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in any all some)
+  #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in all some)
   (pattern (ScalarExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'scalar-expr?)
            #:attr ast ($ u.ast))
@@ -410,6 +410,10 @@
            #:attr ast (scalar:exists ($ te.ast)))
   (pattern (in ~! e1:ScalarExpr e2:TableExpr)
            #:attr ast (scalar:in ($ e1.ast) ($ e2.ast)))
+  (pattern (some ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
+           #:attr ast (scalar:some/all #f ($ e1.ast) ($ op.ast) ($ e2.ast)))
+  (pattern (all ~! e1:ScalarExpr op:OperatorSymbol (~or e2:TableExpr e2:ScalarExpr))
+           #:attr ast (scalar:some/all #t ($ e1.ast) ($ op.ast) ($ e2.ast)))
   (pattern n:exact-integer
            #:attr ast (syntax-e #'n))
   (pattern s:str
@@ -507,6 +511,12 @@
            #:fail-when (special-symbol? (syntax-e #'x)) "reserved identifier"
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
                        "identifier includes SQL comment syntax"
+           #:attr ast (syntax-e #'x)))
+
+(define-syntax-class OperatorSymbol
+  #:attributes (ast)
+  (pattern x:id
+           #:when (regexp-match? operator-symbol-rx (symbol->string (syntax-e #'x)))
            #:attr ast (syntax-e #'x)))
 
 (define (parse-name s)

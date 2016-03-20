@@ -133,6 +133,8 @@ value, or an application of some function or operator.
              (name scalar-expr ...)
              (@#,lit{exists} table-expr)
              (@#,lit{in} scalar-expr table-expr)
+             (@#,lit{some} scalar-expr operator-symbol table-expr)
+             (@#,lit{all} scalar-expr operator-symbol table-expr)
              (@#,lit{case} [scalar-expr scalar-expr] ...)
              (@#,lit{case} [scalar-expr scalar-expr] ... [@#,lit{else} scalar-expr])
              (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ...)
