@@ -224,128 +224,10 @@
       (scalar:placeholder? x)
       (scalar:inject? x)))
 
-(define ((fun-op op-string) . args)
-  (J op-string "(" (J-join args ", ") ")"))
-
-(define ((weird-fun-op op-string arg-prefixes) . args)
-  (J op-string "("
-     (for/list ([prefix (in-list arg-prefixes)] [arg (in-list args)])
-       (if prefix (J prefix arg) arg))
-     ")"))
-
-(define (infix-op-entry sym [op-string (~a " " sym " ")] #:arity [arity '#&1])
-  (list sym arity (infix-op op-string)))
-(define ((infix-op separator) . args)
-  (J "(" (J-join args separator) ")"))
-
-(define ((outfix-op separators) . args)
-  (J "(" (car args)
-     (for/list ([arg (in-list (cdr args))]
-                [separator (in-list separators)])
-       (J separator arg))
-     ")"))
-(define ((prefix-op prefix) arg)   (J "(" prefix arg ")"))
-(define ((postfix-op postfix) arg) (J "(" arg postfix ")"))
-
-
-;; An OpEntry is one of
-;; - (list Symbol Arity Formatter)
-;; - (list Regexp (RxMatch -> (list Arity Formatter)))
-;; where Arity     = Nat | (Nat ...) | (Box Nat) -- latter indicates arity at least
-;;       Formatter = String ... -> String
-
-(define operator-symbol-rx
-  ;; disallow "--"
-  (let ([chars "[~!@#%^&*_=+|<>?/]"])
-    (regexp (format "^(?:~a|[-](?:~a|$))+$" chars chars))))
-
-(define (operator-symbol? sym)
-  (regexp-match? operator-symbol-rx (symbol->string sym)))
-
-(define standard-ops
-  `(;; Functions
-    [cast         2  ,(weird-fun-op "CAST" '(#f " AS "))]
-    [extract      2  ,(weird-fun-op "EXTRACT" '(#f " FROM "))]
-    [overlay   (3 4) ,(weird-fun-op "OVERLAY" '(#f " PLACING " " FROM " " FOR "))]
-    [position     2  ,(weird-fun-op "POSITION" '(#f " IN "))]
-    [substring (2 3) ,(weird-fun-op "SUBSTRING" '(#f "FROM" "FOR"))]
-    [trim-leading  2 ,(lambda (arg1 arg2) (J "TRIM(LEADING "  arg1 " FROM " arg2 ")"))]
-    [trim-trailing 2 ,(lambda (arg1 arg2) (J "TRIM(TRAILING " arg1 " FROM " arg2 ")"))]
-    [trim-both     2 ,(lambda (arg1 arg2) (J "TRIM(BOTH "     arg1 " FROM " arg2 ")"))]
-    [count-all     0 ,(lambda () "COUNT(*)")]
-
-    ;; Operators
-    ,(infix-op-entry '|| " || ") ;; HACK! Note "||" reads as the empty symbol!
-    ,(infix-op-entry '\|\| " || ")
-    ,(infix-op-entry '+ " + ")
-    ,(infix-op-entry '- " - ")
-    ,(infix-op-entry '* " * ")
-    ,(infix-op-entry '/ " / ")
-    ,(infix-op-entry 'and " AND ")
-    ,(infix-op-entry 'or  " OR ")
-    [not            1 ,(prefix-op "NOT ")]
-    [is-null        1 ,(postfix-op " IS NULL")]
-    [is-not-null    1 ,(postfix-op " IS NOT NULL")]
-    [is-true        1 ,(postfix-op " IS TRUE")]
-    [is-not-true    1 ,(postfix-op " IS NOT TRUE")]
-    [is-false       1 ,(postfix-op " IS FALSE")]
-    [is-not-false   1 ,(postfix-op " IS NOT FALSE")]
-    [is-unknown     1 ,(postfix-op " IS UNKNOWN")]
-    [is-not-unknown 1 ,(postfix-op " IS NOT UNKNOWN")]
-    [collate        2 ,(infix-op   " COLLATE ")]
-    [distinct-from  2 ,(infix-op " DISTINCT FROM ")]
-    [between-and    3 ,(outfix-op '(" BETWEEN " " AND "))]
-    [like       (2 3) ,(outfix-op '(" LIKE " " ESCAPE "))]
-    [ilike      (2 3) ,(outfix-op '(" ILIKE " " ESCAPE "))]
-    [similar-to (2 3) ,(outfix-op '(" SIMILAR TO " " ESCAPE "))]
-    ;; Treat any other symbol composed of just the following
-    ;; characters as a non-chaining binary operator.
-    [,operator-symbol-rx
-     ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]
-
-    ;; Field reference
-    ;; (.field x)    "x.field"
-    [#rx"^[.]([a-zA-Z_][a-zA-Z_0-9]*)$"
-     ,(lambda (op field-name) (list 1 (lambda (arg) (J "(" arg ")." field-name))))]
-    ;; (.*) = "*", (.* t) = "t.*"
-    [.*      (0 1) ,(case-lambda [() "*"] [(arg) (J "(" arg ").*")])]
-
-    ;; Other notations
-    [%ref    #&2 ,(lambda (array . indexes) (J "(" array ")[" (J-join indexes ", ") "]"))]
-    [%row    #&2 ,(lambda args (J "(" (J-join args ", ") ")"))]
-    [row     #&0 ,(fun-op "ROW")]
-    [%array  #&1 ,(lambda args (J "ARRAY[" (J-join args ", ") "]"))]
-    ))
-
-(define (normalize-op-part s)
-  (string-upcase (string-replace s #rx"-" " ")))
-
-(define (interleave as bs)
-  (cond [(and (pair? as) (pair? bs))
-         (list* (car as) " " (interleave bs (cdr as)))]
-        [(and (pair? as) (null? bs))
-         as]
-        [else bs]))
-
-(define (op-entry op)
-  (let loop ([ops standard-ops])
-    (cond [(null? ops) #f]
-          [(symbol? (caar ops))
-           (cond [(eq? op (caar ops))
-                  (car ops)]
-                 [else (loop (cdr ops))])]
-          [(regexp? (caar ops))
-           (cond [(regexp-match (caar ops) (symbol->string op))
-                  => (lambda (m) (cons op (apply (cadar ops) m)))]
-                 [else (loop (cdr ops))])])))
-
-(define (op-arity op-name)
-  (cond [(op-entry op-name) => cadr]
-        [else #f]))
-
-(define (op-formatter op-name)
-  (cond [(op-entry op-name) => caddr]
-        [else #f]))
+;; An Arity is one of
+;; - Nat
+;; - (list Nat ...)   -- multiple arities
+;; - (box Nat)        -- arity at least
 
 (define (arity-includes? a n)
   (cond [(box? a) (>= n (unbox a))]
@@ -357,6 +239,87 @@
         [(list? a) (string-join (map ~a a) ", " #:before-last ", or" #:after-last "arguments")]
         [(= a 1) "1 argument"]
         [else (format "~a arguments" a)]))
+
+;; An OpEntry is one of
+;; - (list Symbol Arity)
+;; - (list Regexp Arity)
+
+(define operator-symbol-rx ;; disallow "--"
+  #rx"^(?:[~!@#%^&*_=+|<>?/]|-(?!-))+$")
+
+(define (operator-symbol? sym)
+  (regexp-match? operator-symbol-rx (symbol->string sym)))
+
+;; This table should contain a superset of the tables of dialect.rkt.
+
+(define standard-arities
+  `(;; Functions
+    [cast           2]
+    [extract        2]
+    [overlay    (3 4)]
+    [position       2]
+    [substring  (2 3)]
+    [trim-leading   2]
+    [trim-trailing  2]
+    [trim-both      2]
+    [count-all      0]
+
+    ;; Operators
+    [||           #&1]
+    [\|\|         #&1]
+    [+            #&1]
+    [-            #&2]
+    [*            #&1]
+    [/            #&1]
+    [and          #&1]
+    [or           #&1]
+    [not            1]
+    [is-null        1]
+    [is-not-null    1]
+    [is-true        1]
+    [is-not-true    1]
+    [is-false       1]
+    [is-not-false   1]
+    [is-unknown     1]
+    [is-not-unknown 1]
+    [collate        2]
+    [distinct-from  2]
+    [between-and    3]
+    [like       (2 3)]
+    [ilike      (2 3)]
+    [similar-to (2 3)]
+    ;; Treat any other symbol composed of just the following
+    ;; characters as a non-chaining binary operator.
+    [,operator-symbol-rx 2]
+
+    ;; Field reference
+    ;; (.field x)    "x.field"
+    [#rx"^[.]([a-zA-Z_][a-zA-Z_0-9]*)$" 1]
+    ;; (.*) = "*", (.* t) = "t.*"
+    [.*         (0 1)]
+
+    ;; Other notations
+    [%ref         #&2]
+    [%row         #&2]
+    [row          #&0]
+    [%array       #&1]
+    ))
+
+(define (op-entry op)
+  (let loop ([ops standard-arities])
+    (cond [(null? ops) #f]
+          [(symbol? (caar ops))
+           (cond [(eq? op (caar ops))
+                  (car ops)]
+                 [else (loop (cdr ops))])]
+          [(regexp? (caar ops))
+           (cond [(regexp-match (caar ops) (symbol->string op))
+                  (car ops)]
+                 [else (loop (cdr ops))])])))
+
+(define (op-arity op-name)
+  (cond [(op-entry op-name) => cadr]
+        [else #f]))
 
 ;; ----------------------------------------
 

@@ -21,6 +21,9 @@
         [else
          (case obj
            [(postgresql) postgresql-emit-sql]
+           [(mysql) mysql-emit-sql]
+           [(sqlite3) sqlite3-emit-sql]
+           ;; FIXME: ODBC?
            [else standard-emit-sql])]))
 
 (define current-get-emit-sql (make-parameter base-get-emit-sql))

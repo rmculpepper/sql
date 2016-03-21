@@ -1,5 +1,7 @@
 TO DO
 
+- better CAST, type support
+
 - more comprehensive expr/function support
 
 - allow mixing ? and unquote params (need db-lib improvements)

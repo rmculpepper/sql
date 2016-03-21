@@ -8,6 +8,7 @@
          (rename-in racket/match [match-define defmatch])
          racket/format
          "ast.rkt"
+         "dialect.rkt"
          "jumble.rkt")
 (provide (all-defined-out))
 
@@ -16,27 +17,21 @@
 ;; So we can use map with method names
 (define-syntax-rule (map f xs) (for/list ([x (in-list xs)]) (f x)))
 
-;; reserved-word-table : (Hash String => (Listof Symbol))
-(define reserved-word-table
-  (include "keywords.rktd"))
-
-;; reserved-word? : Symbol Symbol [(U '-type '-function #f)] -> Boolean
-(define (reserved-word? sym dialect [ctx #f])
-  (define key (string-downcase (symbol->string sym)))
-  (define vals (hash-ref reserved-word-table key null))
-  (and (memq dialect vals) (not (memq ctx vals))))
+(define next-dollar-placeholder (make-parameter 1))
 
 ;; ----------------------------------------
 
 (define emit-sql%
   (class object%
+    (init-field dialect)
     (super-new)
 
     ;; ----------------------------------------
     ;; Entry points (to set up state)
 
     (define/public (call-as-entry f)
-      (f))
+      (parameterize ((next-dollar-placeholder 1))
+        (f)))
 
     ;; ----------------------------------------
     ;; Convenience entry points
@@ -370,14 +365,20 @@
         [(scalar:inject sql)
          sql]
         [(scalar:app op args)
-         (define formatter
-           (cond [(name-ast? op)
-                  (fun-op (emit-function-name op))]
-                 [(op-formatter op)
-                  => values]
-                 [else
-                  (error 'emit-scalar-expr "unknown operator\n  operator: ~e" op)]))
-         (apply formatter (for/list ([a (in-list args)]) (emit-scalar-expr a)))]
+         (cond [(name-ast? op)
+                (apply (fun-op (emit-function-name op)) (map emit-scalar-expr args))]
+               [else
+                (match (send dialect op-entry op)
+                  [(list arity formatter)
+                   (unless (arity-includes? arity (length args))
+                     (error 'emit-scalar-expr
+                            (~a "wrong arity for operator or special function"
+                                "\n  operator: ~e\n  expected:  ~s\n  given: ~s~a")
+                            op (arity->string arity) (length args) (send dialect error-line)))
+                   (apply formatter (map emit-scalar-expr args))]
+                  [_
+                   (error 'emit-scalar-expr
+                          "operator not supported\n  operator: ~e" op)])])]
         [(scalar:case cases else)
          (J "CASE"
             (for/list ([c (in-list cases)]) (emit-case-clause c))
@@ -395,20 +396,34 @@
             (J-join (for/list ([e2 (in-list es2)]) (emit-scalar-expr e2)) ", ")
             "))")]
         [(scalar:some/all op e1 quant e2)
+         (define quant-string (case quant [(some) "SOME"] [(all) "ALL"]))
+         (unless (send dialect some/all-op? op)
+           (error 'emit-scalar-expr "illegal operator for ~a comparison\n  operator: ~e~a"
+                  quant-string op (send dialect error-line)))
+         (unless (or (table-expr-ast? e2) (send dialect some/all-allow-scalar))
+           (error 'emit-scalar-expr
+                  "scalar expression not supported in ~a comparison\n  operator: ~e~a"
+                  quant-string op (send dialect error-line)))
          (J "(" (emit-scalar-expr e1) " "
-            (emit-operator-symbol op) (case quant [(some) " SOME ("] [(all) " ALL ("])
+            (emit-operator-symbol op) " " quant-string " ("
             (if (table-expr-ast? e2) (emit-table-expr e2) (emit-scalar-expr e2))
             "))")]
         [(scalar:table te)
          (J "(" (emit-table-expr te) ")")]
         [(scalar:placeholder)
-         "?"]
+         (emit-placeholder)]
         [(? name-ast? e)
          (emit-name e)]
         [(? string?)
          (J "'" (regexp-replace* #rx"'" e "''") "'")]
         [(? exact-integer?)
          (number->string e)]))
+
+    (define/public (emit-placeholder)
+      (case (send dialect placeholder-style)
+        [(?) "?"]
+        [($) (begin0 (format "$~s" (next-dollar-placeholder))
+               (next-dollar-placeholder (add1 (next-dollar-placeholder))))]))
 
     (define/private (emit-case-clause c)
       (J " WHEN " (emit-scalar-expr (car c))
@@ -431,17 +446,15 @@
 
     (define/public (emit-ident id [ctx #f])
       (match id
-        [(id:quoted (? string? s))
-         (J-double-quote s)]
-        [(id:normal (? symbol? s))
-         (define this-dialect 'sql92)
-         (cond [(reserved-word? s this-dialect ctx)
-                ;; Need dialect case-folding convention, quotation convention
-                (J-double-quote (symbol->string s))]
-               [else (symbol->string s)])]))
-
-    (define/public (J-double-quote s)
-      (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\""))
+        [(id:quoted (? string? str))
+         (send dialect J-quote-id str #f)]
+        [(id:normal (? symbol? sym))
+         (define str (symbol->string sym))
+         (cond [(send dialect reserved-word? str ctx)
+                (send dialect J-quote-id str #t)]
+               [(send dialect id-no-quote? str)
+                str]
+               [else (send dialect J-quote-id str #t)])]))
 
     (define/public (emit-ident-commalist ids)
       (J-join (for/list ([id (in-list ids)]) (emit-ident id)) ", "))
@@ -450,23 +463,8 @@
       (symbol->string sym))
     ))
 
-(define next-dollar-placeholder (make-parameter 1))
 
-(define (dollar-placeholder-mixin %)
-  (class %
-    (super-new)
-
-    (define/override (call-as-entry f)
-      (parameterize ((next-dollar-placeholder 1))
-        (super call-as-entry f)))
-
-    (define/override (emit-scalar-expr se)
-      (match se
-        [(scalar:placeholder)
-         (begin0 (format "$~s" (next-dollar-placeholder))
-           (next-dollar-placeholder (add1 (next-dollar-placeholder))))]
-        [_ (super emit-scalar-expr se)]))
-    ))
-
-(define standard-emit-sql (new emit-sql%))
-(define postgresql-emit-sql (new (dollar-placeholder-mixin emit-sql%)))
+(define standard-emit-sql (new emit-sql% (dialect standard-dialect)))
+(define postgresql-emit-sql (new emit-sql% (dialect postgresql-dialect)))
+(define mysql-emit-sql (new emit-sql% (dialect mysql-dialect)))
+(define sqlite3-emit-sql (new emit-sql% (dialect sqlite3-dialect)))
