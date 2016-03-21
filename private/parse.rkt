@@ -393,7 +393,7 @@
 
 (define-splicing-syntax-class maybe-all
   (pattern (~seq #:all) #:attr all? #t)
-  (pattern (~seq #:all) #:attr all? #f))
+  (pattern (~seq) #:attr all? #f))
 
 (define-splicing-syntax-class join-on-clause
   (pattern (~seq #:natural)
@@ -464,10 +464,6 @@
 ;; ============================================================
 ;; Names and Identifiers
 
-;; TODO:
-;; - have mode where Racket identifier parsed as lit-id?
-;; - ...?
-
 ;; Notes on SQL identifier syntax:
 ;; - Date & Darwen pp33-35
 ;; - PostgreSQL: http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html
@@ -477,24 +473,17 @@
 (define-syntax-class Name
   #:attributes (ast)
   #:datum-literals (Ident: Name:)
-  (pattern x:non-special-id
+  (pattern x:id
+           #:fail-when (special-symbol? (syntax-e #'x))
+                       "special word cannot be used as untagged identifier"
            #:attr ast (parse-name (syntax-e #'x))
-           #:fail-unless ($ ast) "not a SQL regular identifier or qualified name")
+           #:fail-unless ($ ast) "illegal character in untagged identifier")
   (pattern (Ident: x:id)
            #:attr ast (id:normal (syntax-e #'x)))
   (pattern (Ident: x:str)
            #:attr ast (id:quoted (syntax-e #'x)))
   (pattern (Name: part:Name ...+)
            #:attr ast (name-list->name ($ part.ast))))
-
-(define-syntax-class non-special-id
-  #:description #f
-  #:attributes ()
-  (pattern x:id
-           #:fail-when (special-symbol? (syntax-e #'x))
-                       "identifier is reserved word"
-           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
-                       "identifier includes SQL comment syntax"))
 
 (define-syntax-class Ident
   #:attributes (ast)
@@ -508,14 +497,18 @@
   (pattern x:id
            #:attr arity (op-arity (syntax-e #'x))
            #:when ($ arity)
+           ;; "--" check should be redundant
            #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
-                       "identifier includes SQL comment syntax"
+                       "operator includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))
 
 (define-syntax-class OperatorSymbol
   #:attributes (ast)
   (pattern x:id
            #:when (operator-symbol? (syntax-e #'x))
+           ;; "--" check should be redundant
+           #:fail-when (regexp-match? #rx"--" (symbol->string (syntax-e #'x)))
+                       "operator includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))
 
 (define (parse-name s)
@@ -524,8 +517,12 @@
         [else
          (define parts (regexp-split #rx"\\." s))
          (and (for/and ([part (in-list parts)])
-                (SQL-regular-id? part))
+                (ok-id-part? part))
               (symbol-list->name (map string->symbol parts)))]))
+
+;; ok-id-part? : String -> Boolean
+(define (ok-id-part? s)
+  (regexp-match? #px"^(?:\\p{L}|_)(?:\\p{L}|\\p{N}|[_$])*$" s))
 
 (define (symbol-list->name parts)
   (let ([parts (map id:normal parts)])
@@ -543,26 +540,34 @@
     (prepend qual n)))
 
 ;; The following symbols are special in this library and are not
-;; parsed as identifiers. Note: "special" overlaps with, but is not
-;; the same as, "reserved word" in SQL.
+;; parsed as identifiers. Every datum-literal should appear in the
+;; list, as well as symbol versions of the main keywords.  It's okay
+;; if a dotted identifier contains a special word: "select" is
+;; special, but "select.as" is okay.
+
+;; Note: "special" is independent of "reserved keyword" (although they
+;; overlap, because of the design of the libary). Reserved words are
+;; handled by dialect.rkt.
 
 (define (special-symbol? sym)
-  (and (memq sym special-symbols) #t))
+  (hash-ref special-symbols-table sym #f))
 
 (define special-symbols
-  '(? unquote     ;; these have other special meanings
-    select insert update delete
-    as values values* union except intersect
-    cross-join inner-join left-join right-join full-join union-join
-    from where ;; to catch forgotten "#:" mistakes
-    in all any some else
-    constraint check unique key primary-key foreign-key references
-    ))
+  '(with select insert update delete create-table create-view
+    temporary constraint primary-key unique check foreign-key references
+    as * from where values values* group-by having order-by asc desc limit offset
+    set columns into
+    cross-join inner-join left-join right-join full-join union intersect except
+    all some distinct corresponding corresponding-by natural using on
+    ? unquote case of else exists in 
 
-(define (SQL-compound-regular-id? s)
-  (define parts (regexp-split #rx"\\." s))
-  (for/and ([part (in-list parts)])
-    (SQL-regular-id? part)))
+    TableRef:AST TableRef:INJECT
+    TableExpr:AST TableExpr:INJECT
+    ScalarExpr:AST ScalarExpr:INJECT
+    Ident: Name:))
+
+(define special-symbols-table
+  (for/hash ([w (in-list special-symbols)]) (values w #t)))
 
 
 ;; ============================================================

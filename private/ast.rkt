@@ -341,7 +341,3 @@
 (define (ident-ast? x)
   (or (id:normal? x)
       (id:quoted? x)))
-
-;; SQL-regular-id? : String -> Boolean
-(define (SQL-regular-id? s)
-  (regexp-match? #rx"^[a-zA-Z][a-zA-Z0-9_]*$" s))
