@@ -14,6 +14,7 @@
 
 (define (parse-statement stx)
   (syntax-parse stx
+    [x:With   ($ x.ast)]
     [x:Select ($ x.ast)]
     [x:Insert ($ x.ast)]
     [x:Update ($ x.ast)]
@@ -70,18 +71,15 @@
 
 (define-syntax-class CreateTableInner
   #:attributes (ast)
+  (pattern (_ (~optional (~and #:temporary temp?)) name:Name
+              #:columns c:ColumnDef ...
+              tc:TableConstraints)
+           #:attr ast (ddl:create-table ($ name.ast)
+                                        (and ($ temp?) #t)
+                                        ($ c.ast)
+                                        ($ tc.ast)))
   (pattern (_ (~optional (~and #:temporary temp?))
-              name:Ident (c:ColumnDef ...)
-              (~or (~optional pk:PrimaryKey)
-                   tc:TableConstraint)
-              ...)
-           #:attr ast (let ([pk ($ pk.ast)])
-                        (ddl:create-table ($ name.ast)
-                                          (and ($ temp?) #t)
-                                          ($ c.ast)
-                                          (if pk (cons pk ($ tc.ast)) ($ tc.ast)))))
-  (pattern (_ (~optional (~and #:temporary temp?))
-              name:Ident #:as s:Statement)
+              name:Name #:as s:Statement)
            #:attr ast (ddl:create-table-as ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
 
 (define-syntax-class ColumnDef
@@ -89,30 +87,43 @@
   (pattern [name:Ident type:ScalarExpr (~optional (~and #:not-null nn))]
            #:attr ast (column ($ name.ast) ($ type.ast) (and ($ nn) #t))))
 
-(define-syntax-class PrimaryKey
-  #:attributes (ast)
-  #:datum-literals (primary-key)
-  (pattern (primary-key c:Ident ...)
-           #:attr ast (constraint:primary-key ($ c.ast))))
+(define-splicing-syntax-class TableConstraints
+  #:attributes ([ast 1])
+  #:description #f
+  (pattern (~seq)
+           #:attr (ast 1) null)
+  (pattern (~seq #:constraints c:TableConstraint ...)
+           #:fail-when (let ([pks (for/list ([c (in-list (syntax->list #'(c ...)))]
+                                             [pk? (in-list ($ c.pk?))]
+                                             #:when pk?)
+                                    c)])
+                         (if (> (length pks) 1) (cadr pks) #f))
+                       "duplicate primary key constraint"
+           #:attr (ast 1) ($ c.ast)))
 
 (define-syntax-class TableConstraint
-  #:attributes (ast)
+  #:attributes (ast pk?)
   #:datum-literals (constraint)
   (pattern (constraint name:Ident c:TableConstraintInner)
-           #:attr ast (constraint:named ($ name.ast) ($ c.ast)))
+           #:attr ast (constraint:named ($ name.ast) ($ c.ast))
+           #:attr pk? ($ c.pk?))
   (pattern :TableConstraintInner))
 
 (define-syntax-class TableConstraintInner
-  #:attributes (ast)
-  #:datum-literals (primary-key unique cast foreign-key)
-  (pattern (primary-key c:Ident)
-           #:attr ast (constraint:primary-key ($ c.ast)))
+  #:attributes (ast pk?)
+  #:datum-literals (primary-key unique check foreign-key)
+  (pattern (primary-key c:Ident ...)
+           #:attr ast (constraint:primary-key ($ c.ast))
+           #:attr pk? #t)
   (pattern (unique c:Ident ...)
-           #:attr ast (constraint:unique ($ c.ast)))
+           #:attr ast (constraint:unique ($ c.ast))
+           #:attr pk? #f)
   (pattern (check e:ScalarExpr)
-           #:attr ast (constraint:check ($ e.ast)))
-  (pattern (foreign-key (c:Ident ...) #:references foreign:TableWColumns)
-           #:attr ast (constraint:references ($ c.ast) ($ foreign.ast))))
+           #:attr ast (constraint:check ($ e.ast))
+           #:attr pk? #f)
+  (pattern (foreign-key c:Ident ... #:references f:TableWColumns)
+           #:attr ast (constraint:references ($ c.ast) (car ($ f.ast)) (cdr ($ f.ast)))
+           #:attr pk? #f))
 
 (define-syntax-class CreateView
   #:attributes (ast)
@@ -120,8 +131,8 @@
 
 (define-syntax-class CreateViewInner
   #:attributes (ast)
-  (pattern (_ name:Ident s:Statement)
-           #:attr ast (ddl:create-view ($ name.ast) ($ s.ast))))
+  (pattern (_ (~optional (~and #:temporary temp?)) name:Name s:Statement)
+           #:attr ast (ddl:create-view ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
 
 
 ;; ============================================================
@@ -545,6 +556,7 @@
     cross-join inner-join left-join right-join full-join union-join
     from where ;; to catch forgotten "#:" mistakes
     in all any some else
+    constraint check unique key primary-key foreign-key references
     ))
 
 (define (SQL-compound-regular-id? s)

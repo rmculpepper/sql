@@ -62,13 +62,14 @@
 
     (define/public (emit-create-view s)
       (match s
-        [(ddl:create-view name rhs)
-         (J "CREATE VIEW " (emit-ident name) " AS " (emit-statement rhs))]))
+        [(ddl:create-view name temp? rhs)
+         (J "CREATE " (if temp? "TEMPORARY " "") "VIEW " (emit-name name)
+            " AS " (emit-statement rhs))]))
 
     (define/public (emit-create-table s)
       (match s
         [(ddl:create-table name temp? columns constraints)
-         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-ident name)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-name name)
             " (" (J-join (map emit-column columns) ", ")
             (if (and (pair? columns) (pair? constraints)) ", " "")
             (J-join (map emit-constraint constraints) ", ")
@@ -77,7 +78,7 @@
     (define/public (emit-create-table-as s)
       (match s
         [(ddl:create-table-as name temp? rhs)
-         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-ident name)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-name name)
             " AS (" (emit-statement rhs) ")")]))
 
     (define/public (emit-column c)
@@ -95,7 +96,13 @@
         [(constraint:unique columns)
          (J "UNIQUE (" (emit-ident-commalist columns) ")")]
         [(constraint:check expr)
-         (J "CHECK (" (emit-scalar-expr expr) ")")]))
+         (J "CHECK (" (emit-scalar-expr expr) ")")]
+        [(constraint:references columns foreign-table foreign-cols)
+         (J "FOREIGN KEY (" (emit-ident-commalist columns) ") REFERENCES "
+            (emit-name foreign-table)
+            (if foreign-cols
+                (J "(" (emit-ident-commalist foreign-cols) ")")
+                ""))]))
 
     ;; ----------------------------------------
     ;; With
@@ -116,7 +123,7 @@
         [(cons name #f)
          (emit-ident name)]
         [(cons name columns)
-         (J (emit-ident name) " (" (emit-ident-commalist columns) ")")]))
+         (J (emit-ident name) "(" (emit-ident-commalist columns) ")")]))
 
     ;; ----------------------------------------
     ;; Select

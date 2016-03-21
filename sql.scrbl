@@ -432,13 +432,16 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 @; ----------------------------------------
 @subsection[#:tag "statements"]{SQL Statements}
 
-A statement is one of the four standard DML statements.
+A statement is one of the four standard DML statements or a @tt{WITH}
+statement that combines them with one or more common table
+expressions.
 
 @racketgrammar*[
 [statement select-statement
            insert-statement
            update-statement
-           delete-statement]
+           delete-statement
+           with-statement]
 ]
 
 @bold{Select}
@@ -512,6 +515,18 @@ clause may not also be used.
 
 ]
 
+@bold{With}
+
+@racketgrammar*[
+
+[with-statement (@#,lit{with} maybe-rec ([table-ident/columns statement])
+                  statement)]
+[maybe-rec (code:line)
+           #:recursive]
+[table-ident/columns table-ident
+                     (table-ident column-ident ...)]
+]
+
 @deftogether[[
 @defform[(statement-qq statement)]
 @defproc[(statement-ast? [v any/c]) boolean?]
@@ -530,6 +545,38 @@ Constructor macro, predicate, and code generator for @svar[statement].
 ]
 }
 
+@; ----------------------------------------
+@subsection[#:tag "ddl-statements"]{SQL DDL Statements}
+
+@racketgrammar*[
+[ddl-statement create-table-statement
+               create-view-statement]
+
+[create-table-statement
+    (@#,lit{create-table} maybe-temp table-name
+      #:columns column-def ...
+      maybe-constraints)
+    (@#,lit{create-table} maybe-temp #:as statement)]
+
+[column-def [column-ident type maybe-not-null]]
+[maybe-not-null (code:line)
+                #:not-null]
+
+[maybe-constraints (code:line)
+                   (code:line #:constraints constraint-decl ...)]
+[constraint-decl (@#,lit{constraint} constraint-ident constraint)
+                       constraint]
+[constraint (@#,lit{primary-key} column-ident ...)
+                  (@#,lit{unique} column-ident ...)
+                  (@#,lit{check} scalar-expr)
+                  (@#,lit{foreign-key} column-ident ...
+                     #:references table-ident/columns)]
+
+[create-view
+    (@#,lit{create-view} maybe-temp view-name
+      statement)]
+
+]
 
 @; ----------------------------------------
 @subsection[#:tag "dialect"]{SQL Dialect}
@@ -587,8 +634,27 @@ identifier binding rather than symbolically.
         #:from (select a b c 
                        #:from other_table
                        #:where (is-not-null d)))
-]
-}
+]}
+
+@deftogether[[
+@defform*[[(create-table maybe-temp table-name
+              #:columns column-def ...
+              maybe-constraints)
+           (create-table maybe-temp #:as statement)]]
+@defform[(create-view maybe-temp view-name
+           statement)]
+]]{
+
+Like @racket[select] etc, but for the DDL nonterminals
+@svar[create-table-statement] and @svar[create-view-statement],
+respectively.
+
+@examples[#:eval the-eval
+(create-table numbers
+  #:columns [n integer #:not-null] [t text]
+  #:constraints
+  (primary-key n))
+]}
 
 @defproc[(sql-statement? [v any/c]) boolean?]{
 
