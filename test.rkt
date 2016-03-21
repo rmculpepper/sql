@@ -7,7 +7,7 @@
   (define s (parse-statement stx))
   (pretty-print (syntax->datum stx))
   (pretty-print s)
-  (printf "~a\n\n" (statement-ast->string s)))
+  (printf "~a\n\n" (sql-ast->string s)))
 
 (define (err stx)
   (with-handlers ([values (lambda (e) (printf "OK (error raised as expected)\n\n"))])

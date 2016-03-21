@@ -7,6 +7,7 @@
          racket/match
          db/base
          racket/struct
+         "ast.rkt"
          "emit.rkt")
 (provide (all-defined-out))
 
@@ -35,18 +36,27 @@
 ;; ----------------------------------------
 ;; Convenience functions
 
-(define (statement-ast->string s [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) statement->string s))
-(define (table-ref-ast->string t [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) table-ref->string t))
-(define (table-expr-ast->string t [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) table-expr->string t))
-(define (scalar-expr-ast->string e [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) scalar-expr->string e))
-(define (name-ast->string e [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) name->string e))
-(define (ident-ast->string e [obj (current-sql-dialect)])
-  (send (get-emit-sql obj) ident->string e))
+(define (sql-ast->string e [dialect (current-sql-dialect)])
+  (define emit (get-emit-sql dialect))
+  (cond [(name-ast? e)
+         (send emit name->string e)]
+        [(scalar-expr-ast? e)
+         (send emit scalar-expr->string e)]
+        [(table-expr-ast? e)
+         (send emit table-expr->string e)]
+        [(table-ref-ast? e)
+         (send emit table-ref->string e)]
+        [(statement-ast? e)
+         (send emit statement->string e)]
+        [(ddl-ast? e)
+         (send emit statement->string e)]))
+
+(define (statement-ast->string e [dialect (current-sql-dialect)])
+  (define emit (get-emit-sql dialect))
+  (cond [(statement-ast? e)
+         (send emit statement->string e)]
+        [(ddl-ast? e)
+         (send emit statement->string e)]))
 
 ;; ============================================================
 ;; Helpers

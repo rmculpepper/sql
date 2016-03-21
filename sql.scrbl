@@ -28,16 +28,24 @@ SQL Standard, 4th ed@._} by C@._ J@._ Date and Hugh Darwen. Each
 non-terminal has the following:
 @itemlist[
 @item{an S-expression syntax,}
-@item{an AST type predicate,}
+@item{an AST type predicate, and}
 @item{a quasiquotation macro to produce AST values from the
-S-expression syntax, and}
-@item{a procedure that converts AST values to SQL strings.}
+S-expression syntax.}
 ]
 All literals are recognized symbolically, rather than by identifier
 binding, to avoid cluttering the namespace. The AST type
 representations are not considered public; they are likely to change
 in future versions of this library.
 
+@defproc[(sql-ast->string [ast (or/c name-ast? scalar-expr-ast? table-expr-ast?
+                                     table-ref-ast? statement-ast?)]
+                          [dialect any/c (current-sql-dialect)])
+         string?]{
+
+Converts the given AST to a string according to the rules of
+@racket[dialect]. Examples are given throughout the following
+sections.
+}
 
 @; ----------------------------------------
 @subsection[#:tag "names"]{SQL Names and Identifiers}
@@ -92,38 +100,30 @@ The following example is equivalent to the SQL qualified name
 @deftogether[[
 @defform[(name-qq name)]
 @defproc[(name-ast? [v any/c]) boolean?]
-@defproc[(name-ast->string [ast name-ast?]
-                           [dialect any/c (current-sql-dialect)])
-         string?]
 ]]{
 
-Quasiquotation macro, predicate, and code generator, respectively, for
-@svar[name].
+Quasiquotation macro and predicate, respectively, for @svar[name].
 
 @examples[#:eval the-eval
-(name-ast->string (name-qq mytable.mycolumn))
-(name-ast->string (name-qq (Name: mytable MYCOLUMN)))
-(name-ast->string (name-qq (Name: (Ident: "MyTable") (Ident: "MyColumn"))))
+(sql-ast->string (name-qq mytable.mycolumn))
+(sql-ast->string (name-qq (Name: mytable MYCOLUMN)))
+(sql-ast->string (name-qq (Name: (Ident: "MyTable") (Ident: "MyColumn"))))
 ]
 
 Reserved words are automatically quoted (after case-folding, if
 necessary):
 @interaction[#:eval the-eval
-(name-ast->string (name-qq table.mycolumn))
-(name-ast->string (name-qq select.insert))
-(name-ast->string (name-qq (Name: (Ident: select) (Ident: insert))))
+(sql-ast->string (name-qq table.mycolumn))
+(sql-ast->string (name-qq select.insert))
+(sql-ast->string (name-qq (Name: (Ident: select) (Ident: insert))))
 ]}
 
 @deftogether[[
 @defform[(ident-qq ident)]
 @defproc[(ident-ast? [v any/c]) boolean?]
-@defproc[(ident-ast->string [ast ident-ast?]
-                            [dialect any/c (current-sql-dialect)])
-         string?]
 ]]{
 
-Quasiquotation macro, predicate, and code generator, respectively, for
-@svar[ident].
+Quasiquotation macro and predicate, respectively, for @svar[ident].
 }
 
 @; ----------------------------------------
@@ -153,7 +153,7 @@ value, or an application of some function or operator.
 Produces an @tt{EXISTS} expression:
 
 @racketblock[
-(exists (select 1 #:from t))    (code:comment "EXISTS (SELECT 1 FROM t)")
+(exists (select 1 #:from t))        (code:comment "EXISTS (SELECT 1 FROM t)")
 ]}
 
 @specsubform[(code:line
@@ -322,30 +322,25 @@ Represents an ordinary function call; no arity checking is done.
 @deftogether[[
 @defform[(scalar-expr-qq scalar-expr)]
 @defproc[(scalar-expr-ast? [v any/c]) boolean?]
-@defproc[(scalar-expr-ast->string [ast scalar-expr-ast?]
-                                  [dialect any/c
-                                  (current-sql-dialect)])
-         string?]
 ]]{
 
-Quasiquotation macro, predicate, and code generator, respectively, for
+Quasiquotation macro and predicate, respectively, for
 @svar[scalar-expr].
 
 @examples[#:eval the-eval
-(scalar-expr-ast->string (scalar-expr-qq mytable.mycolumn))
-(scalar-expr-ast->string (scalar-expr-qq 42))
-(scalar-expr-ast->string (scalar-expr-qq "Salutations"))
-(scalar-expr-ast->string (scalar-expr-qq "a 'tricky' string"))
-(scalar-expr-ast->string (scalar-expr-qq (log (- 1 p))))
-(scalar-expr-ast->string (scalar-expr-qq (and (> x 10) (< x 55))))
-(scalar-expr-ast->string (scalar-expr-qq (coalesce x y z)))
-(scalar-expr-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
-(scalar-expr-ast->string (scalar-expr-qq (extract YEAR dob)))
-(scalar-expr-ast->string (scalar-expr-qq (is-null mytable.mycolumn)))
-(scalar-expr-ast->string (scalar-expr-qq (like ph_num "555-____")))
-(scalar-expr-ast->string (scalar-expr-qq (|| lname ", " fname)))
-]
-}
+(sql-ast->string (scalar-expr-qq mytable.mycolumn))
+(sql-ast->string (scalar-expr-qq 42))
+(sql-ast->string (scalar-expr-qq "Salutations"))
+(sql-ast->string (scalar-expr-qq "a 'tricky' string"))
+(sql-ast->string (scalar-expr-qq (log (- 1 p))))
+(sql-ast->string (scalar-expr-qq (and (> x 10) (< x 55))))
+(sql-ast->string (scalar-expr-qq (coalesce x y z)))
+(sql-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
+(sql-ast->string (scalar-expr-qq (extract YEAR dob)))
+(sql-ast->string (scalar-expr-qq (is-null mytable.mycolumn)))
+(sql-ast->string (scalar-expr-qq (like ph_num "555-____")))
+(sql-ast->string (scalar-expr-qq (|| lname ", " fname)))
+]}
 
 @; ----------------------------------------
 @subsection[#:tag "table-exprs"]{SQL Table References and Expressions}
@@ -408,31 +403,24 @@ must be a join table expression, specifically.
 @deftogether[[
 @defform[(table-ref-qq table-ref)]
 @defproc[(table-ref-ast? [v any/c]) boolean?]
-@defproc[(table-ref-ast->string [ast table-ref-ast?]
-                                [dialect any/c (current-sql-dialect)])
-         string?]
 ]]{
 
-Quasiquotation macro, predicate, and code generator, respectively, for
+Quasiquotation macro and predicate, respectively, for
 @svar[table-ref].
 
 @examples[#:eval the-eval
-(table-ref-ast->string (table-ref-qq supplier))
-(table-ref-ast->string (table-ref-qq (as supplier s)))
-(table-ref-ast->string (table-ref-qq (inner-join supplier part #:using supply_id)))
+(sql-ast->string (table-ref-qq supplier))
+(sql-ast->string (table-ref-qq (as supplier s)))
+(sql-ast->string (table-ref-qq (inner-join supplier part #:using supply_id)))
 ]
 }
 
 @deftogether[[
 @defform[(table-expr-qq table-expr)]
 @defproc[(table-expr-ast? [v any/c]) boolean?]
-@defproc[(table-expr-ast->string [ast table-expr-ast?] 
-                                 [dialect any/c
-                                 (current-sql-dialect)]) 
-         string?]
 ]]{
 
-Quasiquotation macro, predicate, and code generator, respectively, for
+Quasiquotation macro and predicate, respectively, for
 @svar[table-expr].
 }
 
@@ -537,17 +525,15 @@ clause may not also be used.
 @deftogether[[
 @defform[(statement-qq statement)]
 @defproc[(statement-ast? [v any/c]) boolean?]
-@defproc[(statement-ast->string [ast statement-ast?] 
-                                [dialect any/c (current-sql-dialect)]) 
-         string?]
 ]]{
 
-Constructor macro, predicate, and code generator for @svar[statement].
+Quasiquotation macro and predicate, respectively, for
+@svar[statement].
 
 @examples[#:eval the-eval
-(statement-ast->string
+(sql-ast->string
  (statement-qq (select a b c #:from mytable #:where (> a 10))))
-(statement-ast->string
+(sql-ast->string
  (statement-qq (insert #:into mytable #:set [a 1] [b 2] [c 3])))
 ]
 }
@@ -593,9 +579,9 @@ Constructor macro, predicate, and code generator for @svar[statement].
           (or/c symbol? dbsystem? connection?)]{
 
 Controls the default dialect used when converting SQL ASTs to strings
-using functions such as @racket[statement-ast->string].
+using functions such as @racket[sql-ast->string].
 
-This parameter generally @bold{does not} affect statement
+This parameter @bold{does not} affect statement
 (@racket[sql-statement?]) values used with connection query methods;
 generation of SQL code for a query method automatically uses the
 dialect associated with the connection the query is performed on.

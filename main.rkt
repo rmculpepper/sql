@@ -1,5 +1,6 @@
 #lang racket/base
-(require "private/syntax.rkt"
+(require racket/contract/base
+         "private/syntax.rkt"
          "private/ast.rkt"
          "private/emit.rkt")
 
@@ -19,15 +20,7 @@
          scalar-expr-qq
          statement-qq
          select-qq
-
          ddl-qq
-
-         statement-ast->string
-         table-ref-ast->string
-         table-expr-ast->string
-         scalar-expr-ast->string
-         name-ast->string
-         ident-ast->string
 
          with
          select
@@ -38,7 +31,16 @@
          create-table
          create-view
 
-         sql-statement?
-         sql-statement->string
+         sql-statement?)
 
-         current-sql-dialect)
+(provide
+ (contract-out
+  [sql-ast->string
+   (->* [(or/c name-ast? scalar-expr-ast? table-ref-ast? table-expr-ast? statement-ast? ddl-ast?)]
+        [(or/c symbol? #f)]
+        string?)]
+  [sql-statement->string
+   (->* [sql-statement?] [(or/c symbol? #f)] string?)]
+  [current-sql-dialect
+   (parameter/c (or/c symbol? #f))]))
+
