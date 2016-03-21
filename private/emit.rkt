@@ -2,6 +2,7 @@
 
 #lang racket/base
 (require racket/string
+         racket/include
          racket/class
          racket/list
          (rename-in racket/match [match-define defmatch])
@@ -14,6 +15,16 @@
 
 ;; So we can use map with method names
 (define-syntax-rule (map f xs) (for/list ([x (in-list xs)]) (f x)))
+
+;; reserved-word-table : (Hash String => (Listof Symbol))
+(define reserved-word-table
+  (include "keywords.rktd"))
+
+;; reserved-word? : Symbol Symbol [(U '-type '-function #f)] -> Boolean
+(define (reserved-word? sym dialect [ctx #f])
+  (define key (string-downcase (symbol->string sym)))
+  (define vals (hash-ref reserved-word-table key null))
+  (and (memq dialect vals) (not (memq ctx vals))))
 
 ;; ----------------------------------------
 
@@ -84,7 +95,7 @@
     (define/public (emit-column c)
       (match c
         [(column name type not-null?)
-         (J (emit-ident name) " " (emit-scalar-expr type)
+         (J (emit-ident name) " " (emit-type type)
             (if not-null? " NOT NULL" ""))]))
 
     (define/public (emit-constraint c)
@@ -361,7 +372,7 @@
         [(scalar:app op args)
          (define formatter
            (cond [(name-ast? op)
-                  (fun-op (emit-name op))]
+                  (fun-op (emit-function-name op))]
                  [(op-formatter op)
                   => values]
                  [else
@@ -405,18 +416,32 @@
 
     ;; ----------------------------------------
 
-    (define/public (emit-name n)
+    (define/public (emit-name n [ctx #f])
       (match n
         [(qname qual id)
          (J (emit-name qual) "." (emit-ident id))]
-        [_ (emit-ident n)]))
+        [_ (emit-ident n ctx)]))
 
-    (define/public (emit-ident id)
+    (define/public (emit-type type)
+      (if (name-ast? type)
+          (emit-name type '-type)
+          (emit-scalar-expr type)))
+    (define/public (emit-function-name n)
+      (emit-name n '-function))
+
+    (define/public (emit-ident id [ctx #f])
       (match id
         [(id:quoted (? string? s))
-         (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\"")]
+         (J-double-quote s)]
         [(id:normal (? symbol? s))
-         (symbol->string s)]))
+         (define this-dialect 'sql92)
+         (cond [(reserved-word? s this-dialect ctx)
+                ;; Need dialect case-folding convention, quotation convention
+                (J-double-quote (symbol->string s))]
+               [else (symbol->string s)])]))
+
+    (define/public (J-double-quote s)
+      (J "\"" (regexp-replace* #rx"\"" s "\"\"") "\""))
 
     (define/public (emit-ident-commalist ids)
       (J-join (for/list ([id (in-list ids)]) (emit-ident id)) ", "))

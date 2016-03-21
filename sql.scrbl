@@ -72,21 +72,21 @@ is generated in quoted form.
 ]
 
 The following examples are all equivalent to the SQL qualified name
-@tt{table.name}, which by case-folding is also equivalent to
-@tt{TABLE.NAME} and @tt{taBLE.naME}:
+@tt{mytable.mycolumn}, which by case-folding is also equivalent to
+@tt{MYTABLE.MYCOLUMN} and @tt{MyTable.MyColumn}:
 
 @racketblock[
-table.name
-taBLE.naME
-(Name: table NAME)
-(Name: (Ident: table) (Ident: NAME))
+mytable.mycolumn
+MyTable.MyColumn
+(Name: mytable MYCOLUMN)
+(Name: (Ident: mytable) (Ident: MYNAME))
 ]
 
 The following example is equivalent to the SQL qualified name
-@tt{"Table"."Name"}:
+@tt{"MyTable"."MyName"}:
 
 @racketblock[
-(Name: (Ident: "Table") (Ident: "Name"))
+(Name: (Ident: "MyTable") (Ident: "MyName"))
 ]
 
 @deftogether[[
@@ -101,11 +101,18 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 @svar[name].
 
 @examples[#:eval the-eval
-(name-ast->string (name-qq table.name))
-(name-ast->string (name-qq (Name: table NAME)))
-(name-ast->string (name-qq (Name: (Ident: "taBLE") (Ident: "naME"))))
+(name-ast->string (name-qq mytable.mycolumn))
+(name-ast->string (name-qq (Name: mytable MYCOLUMN)))
+(name-ast->string (name-qq (Name: (Ident: "MyTable") (Ident: "MyColumn"))))
 ]
-}
+
+Reserved words are automatically quoted (after case-folding, if
+necessary):
+@interaction[#:eval the-eval
+(name-ast->string (name-qq table.mycolumn))
+(name-ast->string (name-qq select.insert))
+(name-ast->string (name-qq (Name: (Ident: select) (Ident: insert))))
+]}
 
 @deftogether[[
 @defform[(ident-qq ident)]
@@ -244,8 +251,8 @@ expressions'', in a mild abuse of syntax.
 @racket[\|\|] or as @racket[||]; the latter reads as the empty symbol.
 
 @racketblock[
-(|| last ", " first)          (code:comment "last || ', ' || first")
-(\|\| last ", " first)        (code:comment "last || ', ' || first")
+(|| lname ", " fname)         (code:comment "lname || ', ' || fname")
+(\|\| lname ", " fname)       (code:comment "lname || ', ' || fname")
 ]}
 
 @item{Any identifier consisting of only characters in
@@ -325,7 +332,7 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 @svar[scalar-expr].
 
 @examples[#:eval the-eval
-(scalar-expr-ast->string (scalar-expr-qq table.column))
+(scalar-expr-ast->string (scalar-expr-qq mytable.mycolumn))
 (scalar-expr-ast->string (scalar-expr-qq 42))
 (scalar-expr-ast->string (scalar-expr-qq "Salutations"))
 (scalar-expr-ast->string (scalar-expr-qq "a 'tricky' string"))
@@ -334,9 +341,9 @@ Quasiquotation macro, predicate, and code generator, respectively, for
 (scalar-expr-ast->string (scalar-expr-qq (coalesce x y z)))
 (scalar-expr-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
 (scalar-expr-ast->string (scalar-expr-qq (extract YEAR dob)))
-(scalar-expr-ast->string (scalar-expr-qq (is-null table.column)))
+(scalar-expr-ast->string (scalar-expr-qq (is-null mytable.mycolumn)))
 (scalar-expr-ast->string (scalar-expr-qq (like ph_num "555-____")))
-(scalar-expr-ast->string (scalar-expr-qq (|| last ", " first)))
+(scalar-expr-ast->string (scalar-expr-qq (|| lname ", " fname)))
 ]
 }
 
@@ -539,9 +546,9 @@ Constructor macro, predicate, and code generator for @svar[statement].
 
 @examples[#:eval the-eval
 (statement-ast->string
- (statement-qq (select a b c #:from table #:where (> a 10))))
+ (statement-qq (select a b c #:from mytable #:where (> a 10))))
 (statement-ast->string
- (statement-qq (insert #:into table #:set [a 1] [b 2] [c 3])))
+ (statement-qq (insert #:into mytable #:set [a 1] [b 2] [c 3])))
 ]
 }
 
@@ -628,9 +635,9 @@ respectively, except that the macro name is recognized by its
 identifier binding rather than symbolically.
 
 @examples[#:eval the-eval
-(select a b c #:from table #:where (> a 10))
-(insert #:into table #:set [a 1] [b 2] [c 3])
-(insert #:into table
+(select a b c #:from mytable #:where (> a 10))
+(insert #:into mytable #:set [a 1] [b 2] [c 3])
+(insert #:into mytable
         #:from (select a b c 
                        #:from other_table
                        #:where (is-not-null d)))
@@ -686,13 +693,13 @@ Note: Due to limitations in the @racketmodname[db] library,
 the same statement.
 
 @examples[#:eval the-eval
-(select a #:from table #:where (= b ?))
+(select a #:from mytable #:where (= b ?))
 ]
 
 The resulting statement can be used with parameters thus:
 
 @racketblock[
-(query-value c (select a #:from table #:where (= b ?)) 10)
+(query-value c (select a #:from mytable #:where (= b ?)) 10)
 ]
 
 Using the @lit{unquote} form eliminates the need to keep track of
@@ -702,13 +709,13 @@ to SQL code containing placeholders.
 
 @examples[#:eval the-eval
 (define b-param 10)
-(select a #:from table #:where (= b ,b-param))
+(select a #:from mytable #:where (= b ,b-param))
 ]
 
 The resulting statement must be called without additional parameters:
 
 @racketblock[
-(query-value c (select a #:from table #:where (= b ,b-param)))
+(query-value c (select a #:from mytable #:where (= b ,b-param)))
 ]
 
 Note that placeholder syntax varies between SQL dialects. We can see
@@ -717,7 +724,7 @@ the code a statement produces for a specific dialect by setting the
 
 @interaction[#:eval the-eval
 (parameterize ((current-sql-dialect 'postgresql))
-  (print (select a #:from table #:where (= b ,b-param))))
+  (print (select a #:from mytable #:where (= b ,b-param))))
 ]
 
 @; ============================================================
