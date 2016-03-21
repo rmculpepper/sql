@@ -39,12 +39,12 @@ in future versions of this library.
 
 @defproc[(sql-ast->string [ast (or/c name-ast? scalar-expr-ast? table-expr-ast?
                                      table-ref-ast? statement-ast?)]
-                          [dialect any/c (current-sql-dialect)])
+                          [dialect (or/c symbol? #f) (current-sql-dialect)])
          string?]{
 
-Converts the given AST to a string according to the rules of
-@racket[dialect]. Examples are given throughout the following
-sections.
+Produces SQL code as a string for the given AST to a string according
+to the rules of @racket[dialect]. Examples are given throughout the
+following sections.
 }
 
 @; ----------------------------------------
@@ -656,6 +656,14 @@ of the forms in this section such as @racket[select], @racket[#f]
 otherwise.
 }
 
+@defproc[(sql-statement->string [statement sql-statement?]
+                                [dialect (or/c symbol? #f) (current-sql-dialect)])
+         string?]{
+
+Produces SQL code as a string for the given @racket[statement]
+according to the rules of @racket[dialect].
+}
+
 @; ============================================================
 @section[#:tag "unquote"]{Placeholders and Unquote}
 
@@ -710,7 +718,7 @@ the code a statement produces for a specific dialect by setting the
 
 @interaction[#:eval the-eval
 (parameterize ((current-sql-dialect 'postgresql))
-  (print (select a #:from mytable #:where (= b ,b-param))))
+  (sql-statement->string (select a #:from mytable #:where (= b ,b-param))))
 ]
 
 @; ============================================================
