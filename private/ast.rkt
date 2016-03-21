@@ -224,8 +224,8 @@
       (scalar:placeholder? x)
       (scalar:inject? x)))
 
-(define ((fun-op op-string #:arg-sep [arg-sep ", "]) . args)
-  (J op-string "(" (J-join args arg-sep) ")"))
+(define ((fun-op op-string) . args)
+  (J op-string "(" (J-join args ", ") ")"))
 
 (define ((weird-fun-op op-string arg-prefixes) . args)
   (J op-string "("
@@ -311,8 +311,10 @@
     [.*      (0 1) ,(case-lambda [() "*"] [(arg) (J "(" arg ").*")])]
 
     ;; Other notations
-    [%ref    #&2 ,(lambda (array . indexes) (J "(" array ")[" (J-join indexes ",") "]"))]
-    [%row    #&2 ,(lambda args (J "(" (J-join args ",") ")"))]
+    [%ref    #&2 ,(lambda (array . indexes) (J "(" array ")[" (J-join indexes ", ") "]"))]
+    [%row    #&2 ,(lambda args (J "(" (J-join args ", ") ")"))]
+    [row     #&0 ,(fun-op "ROW")]
+    [%array  #&1 ,(lambda args (J "ARRAY[" (J-join args ", ") "]"))]
     ))
 
 (define (normalize-op-part s)

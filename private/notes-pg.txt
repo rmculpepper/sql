@@ -58,10 +58,10 @@ expr COLLATE collation                  (collate expr collation-as-if-expr)
 scalar subquery:
   (SELECT ....)                         table-expr
 
-ARRAY[expr, ...]                        ? -- maybe (%array expr ...)
+ARRAY[expr, ...]                        (%array expr ...)
 
 ROW(expr, ...)                          (row expr ...)
-(expr, expr, ...)                       (row expr expr ...)
+(expr, expr, ...)                       (%row expr ...)
 ROW(t.*)                                (row (.* t))
 
 
@@ -171,22 +171,22 @@ AND, OR, NOT                            and, or, not
    http://www.postgresql.org/docs/9.5/static/functions-comparison.html
 
 <, >, <=, >=, =, <>, !=                 same
-expr BETWEEN expr AND expr              ?
-expr NOT BETWEEN expr AND expr          ?
+expr BETWEEN expr AND expr              (between-and expr expr expr)
+expr NOT BETWEEN expr AND expr          (not (between-and expr expr expr))
 expr BETWEEN SYMMETRIC expr AND expr    ?
 
 expr IS NULL                            (is-null expr)
 expr IS NOT NULL                        (is-not-null expr)
 
-expr IS DISTINCT FROM expr              ?
-expr IS NOT DISTINCT FROM expr          ?
+expr IS DISTINCT FROM expr              (is-distinct-from e e)
+expr IS NOT DISTINCT FROM expr          (not (is-distinct-from e e))
 
-expr IS TRUE                            ?
-expr IS NOT TRUE                        ?
-expr IS FALSE                           ?
-expr IS NOT FALSE                       ?
-expr IS UNKNOWN                         ?
-expr IS NOT UNKNOWN                     ?
+expr IS TRUE                            (is-true e)
+expr IS NOT TRUE                        (is-not-true e)
+expr IS FALSE                           (is-false e)
+expr IS NOT FALSE                       (is-not-false e)
+expr IS UNKNOWN                         (is-unknown e)
+expr IS NOT UNKNOWN                     (is-not-unknown e)
 
 
 == 9.3 Mathematical Functions and Operators
@@ -201,12 +201,12 @@ expr IS NOT UNKNOWN                     ?
 
 ||                                      || or \|\|
 
-overlay(e placing e from e [for e])     ?
-position(expr in expr)                  ?
-substring(expr [from expr] [for expr])  ?
-substring(e from pattern [for escape])  ?
+overlay(e placing e from e [for e])     (overlay e e e [e])
+position(expr in expr)                  (position e e)
+substring(expr [from expr] [for expr])  (substring e e e)
+substring(e from pattern [for escape])  (substring e pattern escape)
 
-trim([leading|trailing|both] e from e)  ?
+trim([leading|trailing|both] e from e)  (trim-leading e e), etc
 trim([leading|trailing|both] e, e)      ?
 
 
@@ -219,14 +219,14 @@ trim([leading|trailing|both] e, e)      ?
 == 9.7 Pattern Matching
    http://www.postgresql.org/docs/9.5/static/functions-matching.html
 
-expr LIKE expr                          ?
-expr LIKE expr ESCAPE char              ?
+expr LIKE expr                          (like e e)
+expr LIKE expr ESCAPE char              (like e e e)
 
 also
-  NOT LIKE
-  ILIKE
-  NOT ILIKE
-  SIMILAR TO
+  NOT LIKE                              (not (like e e))
+  ILIKE                                 (ilike e e)
+  NOT ILIKE                             (not (ilike e e))
+  SIMILAR TO                            (similar-to e e)
 
 ~, ~*, !~, !~*                          same
 
@@ -234,7 +234,7 @@ also
 == 9.9 Date/Time Functions and Operators
    http://www.postgresql.org/docs/9.5/static/functions-datetime.html
 
-EXTRACT(field FROM expr)                ?
+EXTRACT(field FROM expr)                (extract field expr)
 
 (e, e) OVERLAPS (e, e)                  ?
 
@@ -303,7 +303,7 @@ CASE OF ve {WHEN me THEN re}... ELSE ee END       (case #:of ve [me re] ... [els
 == 9.20 Aggregate Functions
    http://www.postgresql.org/docs/9.5/static/functions-aggregate.html
 
-count(*)                                ? -- maybe (count (.*))
+count(*)                                (count-all), (count (.*))
 
 _ WITHIN GROUP (ORDER BY _)             ?
 
@@ -314,31 +314,31 @@ GROUPING(args)                          ?
    http://www.postgresql.org/docs/9.5/static/functions-subquery.html
 
 EXISTS (subquery)                       (exists table-expr)
-expr IN (subquery)                      (in expr table-expr)
-row-expr IN (subquery)                  ?
-expr NOT IN (subquery)                  (not-in expr table-expr)
-row-expr NOT IN (subquery)              ?
+expr IN (subquery)                      (in expr #:from table-expr)
+row-expr IN (subquery)                  (in expr #:from table-expr)
+expr NOT IN (subquery)                  (not (in expr #:from table-expr))
+row-expr NOT IN (subquery)              (not (in expr #:from table-expr))
 
-expr op ANY (subquery)                  ?
-expr op SOME (subquery)                 ?
-row-expr op ANY (subquery)              ?
-row-expr op SOME (subquery)             ?
+expr op ANY (subquery)                  (op expr #:some table-expr)
+expr op SOME (subquery)                 (op expr #:some table-expr)
+row-expr op ANY (subquery)              (op expr #:some table-expr)
+row-expr op SOME (subquery)             (op expr #:some table-expr)
 
-expr op ALL (subquery)                  ?
-row-expr op ALL (subquery)              ?
+expr op ALL (subquery)                  (op expr #:all table-expr)
+row-expr op ALL (subquery)              (op expr #:all table-expr)
 
-row-expr op (subquery)                  ?
+row-expr op (subquery)                  (op expr table-expr)
 
 
 == 9.23 Row and Array Comparisons
    http://www.postgresql.org/docs/9.5/static/functions-comparisons.html
 
-expr IN (value, ...)                    ?
-expr NOT IN (value, ...)                ?
+expr IN (value, ...)                    (in expr #:values value ...)
+expr NOT IN (value, ...)                (not (in expr #:values value ...))
 
-expr op ANY (array-expr)                ?
-expr op SOME (array-expr)               ?
-expr op ALL (array-expr)                ?
+expr op ANY (array-expr)                (op expr #:some array-expr)
+expr op SOME (array-expr)               (op expr #:some array-expr)
+expr op ALL (array-expr)                (op expr #:all array-expr)
 
 row-expr op row-expr                    (op row-expr row-expr)
 

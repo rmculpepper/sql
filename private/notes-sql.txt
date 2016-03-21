@@ -38,14 +38,14 @@ expr BETWEEN expr AND expr              (between-and e1 e2 e3)
 expr LIKE expr                          (like e1 e2)
 expr LIKE expr ESCAPE char              (like e1 e2 e3)
 
-expr IN (table-expr)                    ?
+expr IN (table-expr)                    (in expr #:from table-expr)
 
 expr MATCH [UNIQUE] (table-expr)        ?
 
-expr op ANY (table-expr)                ?
-expr op SOME (table-expr)               ?
-expr op ALL (table-expr)                ?
+expr op ANY (table-expr)                (op expr #:some table-expr)
+expr op SOME (table-expr)               (op expr #:some table-expr)
+expr op ALL (table-expr)                (op expr #:all table-expr)
 
-EXISTS (table-expr)                     ?
+EXISTS (table-expr)                     (exists table-expr)
 
 UNIQUE (table-expr)                     ?

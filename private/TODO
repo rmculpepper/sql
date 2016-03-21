@@ -14,16 +14,6 @@ TO DO
   - check range-vars
   - check aggregates
 
-- additional kinds of ScalarExpr:
-  - EXISTS (subquery)
-  - expr IN (subquery)
-  - expr NOT IN (subquery)
-  - row-constructor op (subquery)
-  - expr IN (value ...), etc
-  - expr op ANY (subquery)
-  - expr op ALL (subquery)
-
-
 - precedence
   - a scalar expression has a precedence based on how it is generated
   - when applying an op of precedence prec_op to expressions e... with precedence prec_e...:

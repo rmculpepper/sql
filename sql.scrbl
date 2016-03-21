@@ -285,6 +285,23 @@ prefixed by a dot.
 (.* table1)                   (code:comment "(table1).*")
 (.*)                          (code:comment "*")
 ]}
+
+@item{Row constructors (the @tt{ROW} syntax is a PostgreSQL extension):
+
+@racketblock[
+(%row 1 2 3)                  (code:comment "(1, 2, 3)")
+(row 1 2 3)                   (code:comment "ROW(1, 2, 3)")
+]}
+
+@item{Arrays and array indexing (PostgreSQL extension):
+
+@racketblock[
+(%array 1 2 3)                (code:comment "ARRAY[1, 2, 3]")
+(%ref x 1)                    (code:comment "(x)[1]")
+(%ref x 1 2 3)                (code:comment "(x)[1,2,3]")
+]}
+
+
 ]}
 
 @specsubform[(name scalar-expr ...)]{
