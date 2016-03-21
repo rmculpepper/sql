@@ -35,8 +35,8 @@ S-expression syntax, and}
 ]
 All literals are recognized symbolically, rather than by identifier
 binding, to avoid cluttering the namespace. The AST type
-representations are not considered public; they may change in future
-versions of this library.
+representations are not considered public; they are likely to change
+in future versions of this library.
 
 
 @; ----------------------------------------
