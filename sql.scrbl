@@ -21,7 +21,10 @@
      (let ([ev (make-log-based-eval log-file log-mode)])
        (ev '(require racket/class db sql db/util/postgresql db/util/datetime))
        ev))
-   (define the-eval (make-pg-eval log-file)))
+   (define db-eval (make-pg-eval log-file)))
+
+@(define the-eval (make-base-eval))
+@(the-eval '(require sql))
 
 @defmodule[sql]
 
@@ -42,7 +45,7 @@ We'll start by going through the examples @secref["intro-basic" #:doc
 '(lib "db/scribblings/db.scrbl")] using this library's SQL notation
 instead.
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (require sql db)
 (eval:alts
  (define pgc ....)
@@ -51,7 +54,7 @@ instead.
 
 First we create a temporary table to play around with:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (query-exec pgc
   (create-table #:temporary the_numbers
     #:columns [n integer #:not-null] [d varchar]))
@@ -61,7 +64,7 @@ First we create a temporary table to play around with:
 
 Let's take a look at the statements that just went by:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (create-table #:temporary the_numbers
   #:columns [n integer #:not-null] [d varchar])
 (insert #:into the_numbers #:set [n 0] [d "nothing"])
@@ -71,7 +74,7 @@ Now let's add another row, using ``computed'' values rather than
 literals. We can use @racket[unquote] (or @litchar{,}) in a scalar
 expression position to insert a Racket value:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (define n1 1)
 (define d1 "the loneliest number")
 (query-exec pgc
@@ -80,7 +83,7 @@ expression position to insert a Racket value:
 
 Let's look at that last statement:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (insert #:into the_numbers #:set [n ,n1] [d ,d1])
 ]
 
@@ -94,14 +97,14 @@ We need to set the current printing dialect to PostgreSQL. This has no
 effect on the query operations; they set the dialect independently
 based on the database connection.
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (code:comment "just to help debugging")
 (current-sql-dialect 'postgresql)
 ]
 
 Now we can look again:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (insert #:into the_numbers #:set [n ,n1] [d ,d1])
 ]
 
@@ -112,7 +115,7 @@ usually more convenient). An explicit placeholder is written
 @racket[?], regardless of the dialect. The parameters are given in the
 query call as usual:
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (query-exec pgc
   (insert #:into the_numbers #:set [n ?] [d ?])
   (+ 1 1) "company")
@@ -130,7 +133,7 @@ parameters:
 You can, of course, mix constant literals and @racket[unquote]s (or
 placeholders).
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (query-exec pgc
   (insert #:into the_numbers #:set [n 3] [d ,"a crowd"]))
 ]
@@ -139,7 +142,7 @@ placeholders).
 same rules regarding parameters. The statements work the same with all
 of the query operations.
 
-@interaction[#:eval the-eval
+@interaction[#:eval db-eval
 (query pgc
   (select n d #:from the_numbers #:where (= (% n 2) 0)))
 (query-rows pgc
@@ -154,6 +157,11 @@ of the query operations.
 
 There are S-expression notations for many common SQL operators and
 expression forms. See @secref["scalar-exprs"] for details.
+
+The rest of this manual uses the SQL1992 dialect:
+@interaction[#:eval db-eval
+(current-sql-dialect #f)
+]
 
 
 @; ============================================================
@@ -177,7 +185,7 @@ representations are not considered public; they are likely to change
 in future versions of this library.
 
 @defproc[(sql-ast->string [ast (or/c name-ast? scalar-expr-ast? table-expr-ast?
-                                     table-ref-ast? statement-ast?)]
+                                     table-ref-ast? statement-ast? ddl-ast?)]
                           [dialect (or/c symbol? #f) (current-sql-dialect)])
          string?]{
 
@@ -190,51 +198,112 @@ following sections.
 @subsection[#:tag "names"]{SQL Names and Identifiers}
 
 A name is either an unqualified identifier or an identifier qualified
-with a name, which depending on its usage might represent a catalog,
-schema, table, range variable, etc. A ``regular identifier'' matching
-the pattern @racket[#rx"[a-zA-Z][a-zA-Z0-9_]*"] may be written as a
-single symbol, and a qualified name whose components are all regular
-identifier can be written as a single symbol with its components
-separated by dot characters.
+with another name, which depending on its usage might represent a
+catalog, schema, table, range variable, etc.
 
-A name or identifier written as a symbol is subject to case-folding,
-whereas one written as a string is not case-folded but interpreted
-literally. Because case-folding behavior is system-dependent, it is
-wisest to either always quote a given name or never quote it. An
-identifier written as @racket[(Ident: _string)] is not case-folded; it
-is generated in quoted form.
+Concrete SQL has both unquoted and quoted identifiers. Different SQL
+environments (eg, database backends) have different restrictions on
+unquoted identifiers, regarding illegal characters and reserved
+words. Most (but not all) systems also apply some case-folding rule to
+unquoted identifiers (eg, PostgreSQL converts to lowercase, some
+others convert to uppercase).
 
-@;{ mention reserved words }
+Similarly, this library has both ``tagged'' and ``untagged'' notations
+for identifiers and names. Untagged identifiers are written as raw
+symbols; they are short and convenient, but they run the risk of
+confusion with operators and special symbols used by this
+library. Examples of special symbols include @lit{select}, @lit{as},
+and @lit{from}. Examples of identifiers containing operator characters
+include @tt{hello-goodbye} and @tt{first/last}. These identifiers must
+be written in tagged form.
 
 @racketgrammar*[
-
-[name symbol
-      ident
-      (@#,lit{Name:} name ...+)]
 
 [ident symbol
        (@#,lit{Ident:} string)
        (@#,lit{Ident:} symbol)]
 
+[name symbol
+      ident
+      (@#,lit{Name:} name ...+)]
+
 ]
 
-The following examples are all equivalent to the SQL qualified name
-@tt{mytable.mycolumn}, which by case-folding is also equivalent to
-@tt{MYTABLE.MYCOLUMN} and @tt{MyTable.MyColumn}:
+@specsubform[(@#,lit{Ident:} symbol)]{
+
+Unquoted if possible; case-folded and quoted according the SQL
+dialect's rules if @racket[symbol] is a reserved word or contains
+illegal characters.
 
 @racketblock[
-mytable.mycolumn
-MyTable.MyColumn
-(Name: mytable MYCOLUMN)
-(Name: (Ident: mytable) (Ident: MYNAME))
-]
+(Ident: MyTable)                (code:comment "MyTable")
+(Ident: Select)                 (code:comment "\"SELECT\"")
+(Ident: a+b.c)                  (code:comment "\"a+b.c\"")
+]}
 
-The following example is equivalent to the SQL qualified name
-@tt{"MyTable"."MyName"}:
+@specsubform[(@#,lit{Ident:} string)]{
+
+Always quoted without case-folding.
 
 @racketblock[
-(Name: (Ident: "MyTable") (Ident: "MyName"))
-]
+(Ident: "MyTable")              (code:comment "\"MyTable\"")
+(Ident: "Select")               (code:comment "\"Select\"")
+(Ident: "x1.$!!")               (code:comment "\"x1.$!!\"")
+]}
+
+@specsubform[(@#,lit{Name:} name ...+)]{
+
+Qualified name; each name except the last qualifies the name to its
+right.
+
+@racketblock[
+(Name: x y z)                   (code:comment "x.y.z")
+(Name: x y.z)                   (code:comment "x.y.z")
+(Name: x (Ident: y.z))          (code:comment "x.\"y.z\"")
+]}
+
+@specsubform[symbol]{
+
+Must not be a special symbol; otherwise an error is raised.
+
+Equivalent to @racket[(@#,lit{Ident:} symbol)] if @racket[symbol] contains
+no dot (@litchar{.}) characters and matches the pattern
+@racket[#px"^(?:\\p{L}|_)(?:\\p{L}|\\p{N}|[_$])*$"]---that is, a letter
+or underscore followed by zero or more letters, numbers, underscores,
+and dollar signs.
+
+If @racket[symbol] consists of dot-separated @racket[_part]s satisfying
+the rule above, it is equivalent to @racket[(Name: _part ...)].
+
+@racketblock[
+MyTable                         (code:comment "MyTable")
+x.y.z                           (code:comment "x.y.z")
+x.select.as                     (code:comment "x.\"SELECT\".\"AS\"")
+]}
+
+Because case-folding behavior is system-dependent, it is wisest to
+either always quote a given name or never quote it.
+
+@deftogether[[
+@defform[(ident-qq ident)]
+@defproc[(ident-ast? [v any/c]) boolean?]
+]]{
+
+Quasiquotation macro and predicate, respectively, for @svar[ident].
+
+@examples[#:eval the-eval
+(sql-ast->string (ident-qq MyTable))
+(sql-ast->string (ident-qq (Ident: MyTable)))
+(sql-ast->string (ident-qq (Ident: "MyTable")))
+
+(sql-ast->string (ident-qq Select))
+(sql-ast->string (ident-qq (Ident: Select)))
+(sql-ast->string (ident-qq (Ident: "Select")))
+(sql-ast->string (ident-qq (Ident: a+b.c)))
+
+(eval:error (sql-ast->string (ident-qq select)))
+(eval:error (sql-ast->string (ident-qq a+b.c)))
+]}
 
 @deftogether[[
 @defform[(name-qq name)]
@@ -244,32 +313,19 @@ The following example is equivalent to the SQL qualified name
 Quasiquotation macro and predicate, respectively, for @svar[name].
 
 @examples[#:eval the-eval
-(sql-ast->string (name-qq mytable.mycolumn))
-(sql-ast->string (name-qq (Name: mytable MYCOLUMN)))
-(sql-ast->string (name-qq (Name: (Ident: "MyTable") (Ident: "MyColumn"))))
-]
-
-Reserved words are automatically quoted (after case-folding, if
-necessary):
-@interaction[#:eval the-eval
-(sql-ast->string (name-qq table.mycolumn))
-(sql-ast->string (name-qq select.insert))
-(sql-ast->string (name-qq (Name: (Ident: select) (Ident: insert))))
+(sql-ast->string (name-qq (Name: x y z)))
+(sql-ast->string (name-qq (Name: x.y z)))
+(sql-ast->string (name-qq x.y.z))
+(sql-ast->string (name-qq x.select.as))
 ]}
 
-@deftogether[[
-@defform[(ident-qq ident)]
-@defproc[(ident-ast? [v any/c]) boolean?]
-]]{
-
-Quasiquotation macro and predicate, respectively, for @svar[ident].
-}
 
 @; ----------------------------------------
 @subsection[#:tag "scalar-exprs"]{SQL Scalar Expressions}
 
-A scalar expression is either a name, a literal integer or string
-value, or an application of some function or operator.
+A scalar expression is either a name, a literal integer or string value,
+or an application of some function or operator. Note: not every kind of
+expression is supported in every SQL dialect.
 
 @racketgrammar*[
 [scalar-expr name
@@ -446,8 +502,6 @@ prefixed by a dot.
 (%ref x 1)                    (code:comment "(x)[1]")
 (%ref x 1 2 3)                (code:comment "(x)[1,2,3]")
 ]}
-
-
 ]}
 
 @specsubform[(name scalar-expr ...)]{
@@ -455,6 +509,14 @@ prefixed by a dot.
 Represents an ordinary function call; no arity checking is done.
 @racketblock[
 (coalesce x y z)              (code:comment "coalesce(x, y, z)")
+]}
+
+@specsubform[table-expr]{
+
+Represents a subquery; the query must return at most one row.
+
+@racketblock[
+(select y #:from ys #:where (x = 0))  (code:comment "(SELECT y FROM ys WHERE x = 0)")
 ]}
 
 
@@ -709,6 +771,15 @@ Quasiquotation macro and predicate, respectively, for
       statement)]
 
 ]
+
+@deftogether[[
+@defform[(ddl-qq ddl-statement)]
+@defproc[(ddl-ast? [v any/c]) boolean?]
+]]{
+
+Quasiquotation macro and predicate, respectively, for
+@svar[ddl-statement].
+}
 
 @; ----------------------------------------
 @subsection[#:tag "dialect"]{SQL Dialect}

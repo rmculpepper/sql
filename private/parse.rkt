@@ -475,7 +475,7 @@
   #:datum-literals (Ident: Name:)
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x))
-                       "special word cannot be used as untagged identifier"
+                       "special symbol cannot be used as untagged identifier"
            #:attr ast (parse-name (syntax-e #'x))
            #:fail-unless ($ ast) "illegal character in untagged identifier")
   (pattern (Ident: x:id)

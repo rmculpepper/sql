@@ -6,6 +6,7 @@
 
 (provide ;; from private/ast.rkt
          statement-ast?
+         ddl-ast?
          table-ref-ast?
          table-expr-ast?
          scalar-expr-ast?
