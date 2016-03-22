@@ -4,6 +4,7 @@
                      "ast.rkt"
                      "parse.rkt")
          racket/class
+         racket/serialize
          racket/match
          db/base
          racket/struct
@@ -56,7 +57,9 @@
   (cond [(statement-ast? e)
          (send emit statement->string e)]
         [(ddl-ast? e)
-         (send emit statement->string e)]))
+         (send emit statement->string e)]
+        [else
+         (error 'statement-ast->string "bad value: ~e\n" e)]))
 
 ;; ============================================================
 ;; Helpers
@@ -95,7 +98,7 @@
     (define ast* (loop ast))
     (cond [(and seen-placeholder? (pair? r-unquoted-exprs))
            (raise-syntax-error #f
-             "statement contains both placeholders and value-unquotes"
+             "cannot use both placeholders and unquoted values"
              stx)]
           [(pair? r-unquoted-exprs)
            ;; Use #'here lexical context for embedded AST unquotes
@@ -108,7 +111,7 @@
            (with-syntax ([ast* (datum->syntax #'here ast*)])
              #'(sql-statement (quasiquote ast*) #f))])))
 
-(struct sql-statement (ast args)
+(serializable-struct sql-statement (ast args)
         #:property prop:statement
         (lambda (self c)
           (define sql (sql-statement->string self c))

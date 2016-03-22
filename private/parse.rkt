@@ -67,7 +67,7 @@
 
 (define-syntax-class CreateTable
   #:attributes (ast)
-  (pattern (~and ((~datum create-table) . _) :CreateTableInner)))
+  (pattern (~and ((~datum create-table) ~! . _) :CreateTableInner)))
 
 (define-syntax-class CreateTableInner
   #:attributes (ast)
@@ -127,7 +127,7 @@
 
 (define-syntax-class CreateView
   #:attributes (ast)
-  (pattern (~and ((~datum create-view) . _) :CreateViewInner)))
+  (pattern (~and ((~datum create-view) ~! . _) :CreateViewInner)))
 
 (define-syntax-class CreateViewInner
   #:attributes (ast)

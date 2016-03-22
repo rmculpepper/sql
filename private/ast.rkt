@@ -37,9 +37,9 @@
 ;; DDL Statements
 
 (define (ddl-ast? x)
-  (ddl:create-table? x)
-  (ddl:create-table-as? x)
-  (ddl:create-view? x))
+  (or (ddl:create-table? x)
+      (ddl:create-table-as? x)
+      (ddl:create-view? x)))
 
 ;; A DDL is one of
 ;; - (ddl:create-table Name Boolean (Listof Column) (Listof Constraint))

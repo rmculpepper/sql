@@ -1,7 +1,8 @@
 #lang scribble/manual
 @(require scribble/manual
           scribble/basic
-          scribble/eval
+          scribble/example
+          racket/runtime-path
           (for-label racket
                      racket/contract
                      (only-in db/base query-value)
@@ -12,10 +13,148 @@
 
 @(define (lit str) (racketfont str))
 
-@(define the-eval (make-base-eval))
-@(the-eval '(require sql))
+@(begin
+   (define-syntax-rule (interaction e ...) (examples #:label #f e ...))
+   (define-runtime-path log-file "private/log-for-sql-docs.rktd")
+   (define log-mode 'replay)
+   (define (make-pg-eval log-file)
+     (let ([ev (make-log-based-eval log-file log-mode)])
+       (ev '(require racket/class db sql db/util/postgresql db/util/datetime))
+       ev))
+   (define the-eval (make-pg-eval log-file)))
 
 @defmodule[sql]
+
+This library provides an S-expression notation for a useful subset of
+SQL. It provides forms that produce statements (as opaque values
+rather than strings) that can be used directly with Racket's
+@racketmodname[db] library. It also provides macros and functions for
+creating and manipulating SQL ASTs.
+
+@; ============================================================
+@section[#:tag "sql-intro"]{Using the SQL Library}
+
+This library complements the @racketmodname[db] library. The database
+library manages connecting to databases and executing queries; this
+library helps construction of the queries to execute.
+
+We'll start by going through the examples @secref["intro-basic" #:doc
+'(lib "db/scribblings/db.scrbl")] using this library's SQL notation
+instead.
+
+@interaction[#:eval the-eval
+(require sql db)
+(eval:alts
+ (define pgc ....)
+ (define pgc (dsn-connect 'db-scribble-env)))
+]
+
+First we create a temporary table to play around with:
+
+@interaction[#:eval the-eval
+(query-exec pgc
+  (create-table #:temporary the_numbers
+    #:columns [n integer #:not-null] [d varchar]))
+(query-exec pgc
+  (insert #:into the_numbers #:set [n 0] [d "nothing"]))
+]
+
+Let's take a look at the statements that just went by:
+
+@interaction[#:eval the-eval
+(create-table #:temporary the_numbers
+  #:columns [n integer #:not-null] [d varchar])
+(insert #:into the_numbers #:set [n 0] [d "nothing"])
+]
+
+Now let's add another row, using ``computed'' values rather than
+literals. We can use @racket[unquote] (or @litchar{,}) in a scalar
+expression position to insert a Racket value:
+
+@interaction[#:eval the-eval
+(define n1 1)
+(define d1 "the loneliest number")
+(query-exec pgc
+  (insert #:into the_numbers #:set [n ,n1] [d ,d1]))
+]
+
+Let's look at that last statement:
+
+@interaction[#:eval the-eval
+(insert #:into the_numbers #:set [n ,n1] [d ,d1])
+]
+
+The @racket[unquote]d expressions turned into parameter placeholders,
+and the statement stores their values separately. Strangely, the
+placeholders appear as @tt{?}, and PostgreSQL doesn't understand
+@tt{?} placeholders; they should have been @tt{$1} and @tt{$2}. But
+the statement seems to have worked. What's going on?
+
+We need to set the current printing dialect to PostgreSQL. This has no
+effect on the query operations; they set the dialect independently
+based on the database connection.
+
+@interaction[#:eval the-eval
+(code:comment "just to help debugging")
+(current-sql-dialect 'postgresql)
+]
+
+Now we can look again:
+
+@interaction[#:eval the-eval
+(insert #:into the_numbers #:set [n ,n1] [d ,d1])
+]
+
+And now we see @tt{$1} and @tt{$2} as expected.
+
+We can introduce placeholders explicitly (although @racket[unquote] is
+usually more convenient). An explicit placeholder is written
+@racket[?], regardless of the dialect. The parameters are given in the
+query call as usual:
+
+@interaction[#:eval the-eval
+(query-exec pgc
+  (insert #:into the_numbers #:set [n ?] [d ?])
+  (+ 1 1) "company")
+]
+
+It is not possible to mix explicit placeholders and @racket[unquote]
+parameters:
+@interaction[#:eval the-eval
+(eval:error
+ (query-exec pgc
+   (insert #:into the_numbers #:set [n ,3] [d ?])
+   "a crowd"))
+]
+
+You can, of course, mix constant literals and @racket[unquote]s (or
+placeholders).
+
+@interaction[#:eval the-eval
+(query-exec pgc
+  (insert #:into the_numbers #:set [n 3] [d ,"a crowd"]))
+]
+
+@tt{SELECT} statements are constructed similarly, and they follow the
+same rules regarding parameters. The statements work the same with all
+of the query operations.
+
+@interaction[#:eval the-eval
+(query pgc
+  (select n d #:from the_numbers #:where (= (% n 2) 0)))
+(query-rows pgc
+  (select n d #:from the_numbers #:where (= (+ n n) (* n n))))
+(query-row pgc
+  (select n d #:from the_numbers #:where (< n 1)))
+(query-list pgc
+  (select d #:from the_numbers #:where (= 0 (% n 2))))
+(query-value pgc
+  (select (string_agg d ", ") #:from the_numbers #:where (= 0 (% n 2))))
+]
+
+There are S-expression notations for many common SQL operators and
+expression forms. See @secref["scalar-exprs"] for details.
+
 
 @; ============================================================
 @section[#:tag "sql-syntax"]{S-expression Syntax for SQL}
