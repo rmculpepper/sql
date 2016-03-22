@@ -543,6 +543,65 @@ Quasiquotation macro and predicate, respectively, for
 (sql-ast->string (scalar-expr-qq (|| lname ", " fname)))
 ]}
 
+
+@; ----------------------------------------
+@subsection[#:tag "unquote"]{Placeholders and Unquote}
+
+There are two additional variants of @svar[scalar-expr] that enable
+the construction of parameterized queries. The first is a placeholder,
+written @lit{?} (regardless of the notation used by the database the
+query is to be sent to). The second is the @lit{unquote} form, which
+is equivalent to inserting a placeholder and also providing the
+expression as a query parameter.
+
+@racketgrammar*[
+
+[scalar-expr ....
+             ?
+             (@#,lit{unquote} racket-expr)]
+
+]
+
+Note: Due to limitations in the @racketmodname[db] library,
+@lit{unquote} parameters and ordinary placeholders cannot be mixed in
+the same statement.
+
+@examples[#:eval the-eval
+(select a #:from mytable #:where (= b ?))
+]
+
+The resulting statement can be used with parameters thus:
+
+@racketblock[
+(query-value c (select a #:from mytable #:where (= b ?)) 10)
+]
+
+Using the @lit{unquote} form eliminates the need to keep track of
+positional parameters; instead, the parameter value is written as a
+Racket expression within the statement. It is automatically translated
+to SQL code containing placeholders.
+
+@examples[#:eval the-eval
+(define b-param 10)
+(select a #:from mytable #:where (= b ,b-param))
+]
+
+The resulting statement must be called without additional parameters:
+
+@racketblock[
+(query-value c (select a #:from mytable #:where (= b ,b-param)))
+]
+
+Note that placeholder syntax varies between SQL dialects. We can see
+the code a statement produces for a specific dialect by setting the
+@racket[current-sql-dialect] parameter:
+
+@interaction[#:eval the-eval
+(parameterize ((current-sql-dialect 'postgresql))
+  (sql-statement->string (select a #:from mytable #:where (= b ,b-param))))
+]
+
+
 @; ----------------------------------------
 @subsection[#:tag "table-exprs"]{SQL Table References and Expressions}
 
@@ -873,63 +932,6 @@ otherwise.
 Produces SQL code as a string for the given @racket[statement]
 according to the rules of @racket[dialect].
 }
-
-@; ============================================================
-@section[#:tag "unquote"]{Placeholders and Unquote}
-
-There are two additional variants of @svar[scalar-expr] that enable
-the construction of parameterized queries. The first is a placeholder,
-written @lit{?} (regardless of the notation used by the database the
-query is to be sent to). The second is the @lit{unquote} form, which
-is equivalent to inserting a placeholder and also providing the
-expression as a query parameter.
-
-@racketgrammar*[
-
-[scalar-expr ....
-             ?
-             (@#,lit{unquote} racket-expr)]
-
-]
-
-Note: Due to limitations in the @racketmodname[db] library,
-@lit{unquote} parameters and ordinary placeholders cannot be mixed in
-the same statement.
-
-@examples[#:eval the-eval
-(select a #:from mytable #:where (= b ?))
-]
-
-The resulting statement can be used with parameters thus:
-
-@racketblock[
-(query-value c (select a #:from mytable #:where (= b ?)) 10)
-]
-
-Using the @lit{unquote} form eliminates the need to keep track of
-positional parameters; instead, the parameter value is written as a
-Racket expression within the statement. It is automatically translated
-to SQL code containing placeholders.
-
-@examples[#:eval the-eval
-(define b-param 10)
-(select a #:from mytable #:where (= b ,b-param))
-]
-
-The resulting statement must be called without additional parameters:
-
-@racketblock[
-(query-value c (select a #:from mytable #:where (= b ,b-param)))
-]
-
-Note that placeholder syntax varies between SQL dialects. We can see
-the code a statement produces for a specific dialect by setting the
-@racket[current-sql-dialect] parameter:
-
-@interaction[#:eval the-eval
-(parameterize ((current-sql-dialect 'postgresql))
-  (sql-statement->string (select a #:from mytable #:where (= b ,b-param))))
-]
 
 @; ============================================================
 @section[#:tag "escapes"]{Dynamic Statement Composition and SQL Injection}
