@@ -34,7 +34,7 @@
 ;; contrast, macro versions will use the Inner stxclasses directly.
 
 (define-syntax-class Statement
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern :With)
   (pattern :Select)
   (pattern :Insert)
@@ -42,35 +42,35 @@
   (pattern :Delete))
 
 (define-syntax-class With
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum with) . _) :WithInner)))
 (define-syntax-class Select
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum select) . _) :SelectInner)))
 (define-syntax-class Insert
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum insert) . _) :InsertInner)))
 (define-syntax-class Update
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum update) . _) :UpdateInner)))
 (define-syntax-class Delete
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum delete) . _) :DeleteInner)))
 
 ;; ============================================================
 ;; DDL Statements
 
 (define-syntax-class DDL
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern :CreateTable)
   (pattern :CreateView))
 
 (define-syntax-class CreateTable
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum create-table) ~! . _) :CreateTableInner)))
 
 (define-syntax-class CreateTableInner
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (_ (~optional (~and #:temporary temp?)) name:Name
               #:columns c:ColumnDef ...
               tc:TableConstraints)
@@ -83,7 +83,7 @@
            #:attr ast (ddl:create-table-as ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
 
 (define-syntax-class ColumnDef
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern [name:Ident type:ScalarExpr (~optional (~and #:not-null nn))]
            #:attr ast (column ($ name.ast) ($ type.ast) (and ($ nn) #t))))
 
@@ -102,7 +102,7 @@
            #:attr (ast 1) ($ c.ast)))
 
 (define-syntax-class TableConstraint
-  #:attributes (ast pk?)
+  #:attributes (ast pk?) #:commit
   #:datum-literals (constraint)
   (pattern (constraint name:Ident c:TableConstraintInner)
            #:attr ast (constraint:named ($ name.ast) ($ c.ast))
@@ -110,7 +110,7 @@
   (pattern :TableConstraintInner))
 
 (define-syntax-class TableConstraintInner
-  #:attributes (ast pk?)
+  #:attributes (ast pk?) #:commit
   #:datum-literals (primary-key unique check foreign-key)
   (pattern (primary-key c:Ident ...)
            #:attr ast (constraint:primary-key ($ c.ast))
@@ -126,11 +126,11 @@
            #:attr pk? #f))
 
 (define-syntax-class CreateView
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (~and ((~datum create-view) ~! . _) :CreateViewInner)))
 
 (define-syntax-class CreateViewInner
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern (_ (~optional (~and #:temporary temp?)) name:Name s:Statement)
            #:attr ast (ddl:create-view ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
 
@@ -139,19 +139,19 @@
 ;; With Statement
 
 (define-syntax-class WithInner
+  #:attributes (ast) #:commit
   #:description #f
-  #:attributes (ast)
   (pattern (_ rec:MaybeRec ([h:TableWColumns rhs:Statement] ...) body:Statement)
            #:attr ast (statement:with ($ rec.ast) ($ h.ast) ($ rhs.ast) ($ body.ast))))
 
 (define-splicing-syntax-class MaybeRec
-  #:description #f
   #:attributes (ast)
+  #:description #f
   (pattern (~seq #:recursive) #:attr ast #t)
   (pattern (~seq) #:attr ast #f))
 
 (define-syntax-class TableWColumns
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern name:Ident
            #:attr ast (cons ($ name.ast) #f))
   (pattern (name:Ident column:Ident ...)
@@ -161,8 +161,8 @@
 ;; Select Statement
 
 (define-syntax-class SelectInner
+  #:attributes (ast) #:commit
   #:description #f
-  #:attributes (ast)
   (pattern (_ vs:SelectValues
               (~or (~optional sel:SelectValuesClause)
                    (~optional from:SelectFromClause)
@@ -199,7 +199,7 @@
   (pattern (~seq (~and #:values kw) :SelectValues)))
 
 (define-syntax-class SelectItem
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:datum-literals (as *)
   (pattern (as ~! expr:ScalarExpr column:Ident)
            #:attr ast (select-item:as ($ expr.ast) ($ column.ast)))
@@ -258,8 +258,8 @@
 ;; (insert #:into table #:columns column ... #:from TableExpr)
 
 (define-syntax-class InsertInner
+  #:attributes (ast) #:commit
   #:description #f
-  #:attributes (ast)
   (pattern (_ target:InsertTarget
               assign:AssignClause)
            #:attr ast (statement:insert
@@ -290,8 +290,8 @@
 ;; Update Statement
 
 (define-syntax-class UpdateInner
+  #:attributes (ast) #:commit
   #:description #f
-  #:attributes (ast)
   (pattern (_ table:Name
               (~or (~once assign:AssignClause)
                    (~optional where:WhereClause))
@@ -304,7 +304,7 @@
   (pattern (~seq #:set :Assignment ...)))
 
 (define-syntax-class Assignment
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern [c:Ident e:ScalarExpr]
            #:attr ast (update:assign ($ c.ast) ($ e.ast))))
 
@@ -312,8 +312,8 @@
 ;; Delete Statement
 
 (define-syntax-class DeleteInner
+  #:attributes (ast) #:commit
   #:description #f
-  #:attributes (ast)
   (pattern (_ (~or (~once :DeleteFromClause)
                    (~optional where:WhereClause))
               ...)
@@ -328,7 +328,7 @@
 ;; Table References && Expressions
 
 (define-syntax-class TableRef
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:datum-literals (TableRef:AST TableRef:INJECT as)
   (pattern (TableRef:AST ~! u)
            #:declare u (UnquoteExpr/c #'table-ref?)
@@ -345,8 +345,8 @@
   (pattern :TableExpr))
 
 (define-syntax-class TableExpr
-  #:attributes (ast)
-  #:datum-literals (TableExpr:AST TableExpr:INJECT cross-join values values*)
+  #:attributes (ast) #:commit
+  #:datum-literals (TableExpr:AST TableExpr:INJECT cross-join values values* select)
   (pattern (TableExpr:AST ~! u)
            #:declare u (UnquoteExpr/c #'table-expr?)
            #:attr ast ($ u.ast))
@@ -370,15 +370,20 @@
                        (for/list ([es (syntax->list #'((e ...) ...))])
                          (for/list ([e (syntax->list es)])
                            (parse-scalar-expr e)))))
-  (pattern s:Select
+  (pattern (~and (select ~! . _) s:Select)
+           ;; was just s:Select, but this gives better errors
            #:attr ast (table-expr:select ($ s.ast))))
 
 (define-syntax-class Join
+  #:commit
+  #:description #f  ;; interferes with stxparse error-collapsing
   (pattern (~datum inner-join))
   (pattern (~datum left-join))
   (pattern (~datum right-join))
   (pattern (~datum full-join)))
 (define-syntax-class SetOp
+  #:commit
+  #:description #f  ;; interferes with stxparse error-collapsing
   (pattern (~datum union))
   (pattern (~datum intersect))
   (pattern (~datum except)))
@@ -440,7 +445,7 @@
            #:attr ast (scalar:app ($ op.ast) ($ arg.ast))))
 
 (define-syntax-class ScalarExpr/Case
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:description "CASE scalar expression"
   #:datum-literals (case else)
   (pattern (case #:of ~! value:ScalarExpr cs:CaseClause ... [else ec:ScalarExpr])
@@ -449,12 +454,12 @@
            #:attr ast (scalar:case ($ cs.ast) ($ ec.ast))))
 
 (define-syntax-class CaseClause
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern [q:ScalarExpr a:ScalarExpr]
            #:attr ast (cons ($ q.ast) ($ a.ast))))
 
 (define-syntax-class ScalarExpr/In
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:description "IN scalar expression"
   (pattern (_ e1:ScalarExpr #:from e2:TableExpr)
            #:attr ast (scalar:in-table ($ e1.ast) ($ e2.ast)))
@@ -471,7 +476,7 @@
 ;; - MySQL: http://dev.mysql.com/doc/refman/5.0/en/identifiers.html
 
 (define-syntax-class Name
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:datum-literals (Ident: Name:)
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x))
@@ -486,13 +491,13 @@
            #:attr ast (name-list->name ($ part.ast))))
 
 (define-syntax-class Ident
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern x:Name
            #:fail-when (qname? ($ x.ast)) "expected unqualified name"
            #:attr ast ($ x.ast)))
 
 (define-syntax-class Operator
-  #:attributes (ast arity)
+  #:attributes (ast arity) #:commit
   #:description #f
   (pattern x:id
            #:attr arity (op-arity (syntax-e #'x))
@@ -503,7 +508,7 @@
            #:attr ast (syntax-e #'x)))
 
 (define-syntax-class OperatorSymbol
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   (pattern x:id
            #:when (operator-symbol? (syntax-e #'x))
            ;; "--" check should be redundant
@@ -574,7 +579,7 @@
 ;; Other
 
 (define-syntax-class (UnquoteExpr/c ctc)
-  #:attributes (c ast)
+  #:attributes (c ast) #:commit
   #:datum-literals (unquote)
   (pattern (unquote e)
            #:declare e (expr/c ctc)
@@ -582,7 +587,7 @@
            #:attr ast (list 'unquote #'c)))
 
 (define-syntax-class StringOrUnquote
-  #:attributes (ast)
+  #:attributes (ast) #:commit
   #:datum-literals (unquote)
   (pattern (unquote e)
            #:declare e (expr/c #'string?)

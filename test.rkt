@@ -41,3 +41,5 @@
 ;; ((Name: position) 1 2 3) => position(1, 2, 3), not POSITION(1 IN 2)
 
 ;; (Ident: x.y) ???
+
+;; Bad error for: (select x #:from ,"foo") --- why?
