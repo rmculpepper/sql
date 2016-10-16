@@ -3,12 +3,13 @@
           scribble/basic
           scribble/example
           racket/runtime-path
+          racket/sandbox
           (for-label racket
                      racket/contract
-                     (only-in db/base query-value)
+                     db/base
                      sql))
 
-@title{SQL: A Racket Notation for SQL}
+@title{SQL: A Structured Notation for SQL Statements}
 @author[@author+email["Ryan Culpepper" "ryanc@racket-lang.org"]]
 
 @(define (lit str) (racketfont str))
@@ -93,21 +94,13 @@ placeholders appear as @tt{?}, and PostgreSQL doesn't understand
 @tt{?} placeholders; they should have been @tt{$1} and @tt{$2}. But
 the statement seems to have worked. What's going on?
 
-We need to set the current printing dialect to PostgreSQL. This has no
+We need to set the interactive printing dialect to PostgreSQL. This has no
 effect on the query operations; they set the dialect independently
 based on the database connection.
-
 @interaction[#:eval db-eval
-(code:comment "just to help debugging")
-(current-sql-dialect 'postgresql)
+(parameterize ((current-sql-dialect 'postgresql))
+  (print (insert #:into the_numbers #:set [n ,n1] [d ,d1])))
 ]
-
-Now we can look again:
-
-@interaction[#:eval db-eval
-(insert #:into the_numbers #:set [n ,n1] [d ,d1])
-]
-
 And now we see @tt{$1} and @tt{$2} as expected.
 
 We can introduce placeholders explicitly (although @racket[unquote] is
@@ -121,8 +114,8 @@ query call as usual:
   (+ 1 1) "company")
 ]
 
-It is not possible to mix explicit placeholders and @racket[unquote]
-parameters:
+It is not currently possible to mix explicit placeholders and
+@racket[unquote] parameters:
 @interaction[#:eval the-eval
 (eval:error
  (query-exec pgc
@@ -158,10 +151,88 @@ of the query operations.
 There are S-expression notations for many common SQL operators and
 expression forms. See @secref["scalar-exprs"] for details.
 
-The rest of this manual uses the SQL1992 dialect:
+The rest of this manual uses the default SQL1992 dialect for printing
+results:
 @interaction[#:eval db-eval
 (current-sql-dialect #f)
 ]
+
+
+@; ============================================================
+@section[#:tag "statement-forms"]{Statement Forms}
+
+The macros in this section create statement values suitable for
+passing to the query functions of the @racketmodname[db]
+library. These statement values satisfy the @racketmodname[db]
+library's @racket[statement?] predicate. They are different from the
+@svar[statement] ASTs produced by @racket[statement-qq].
+
+The printing of a statement value is controlled by
+@racket[(current-sql-dialect)], but the code it generates when passed
+to a query function is determined by the dialect of the connection the
+query is performed on.
+
+@deftogether[[
+@defform*[[(select select-item ... select-clause ...)
+           (select select-clause ...)]]
+
+@defform*[[(insert #:into table-name assign-clause)
+           (insert #:into table-name maybe-columns #:from table-expr)]]
+
+@defform[(update table-name assign-clause maybe-where)]
+
+@defform[(delete #:from table-name maybe-where)]
+]]{
+
+Produces a statement value that can be passed to a @racketmodname[db]
+query function. The syntax of the macros corresponds to the syntax of
+the @svar[select-statement], @svar[insert-statement],
+@svar[update-statement], and @svar[delete-statement] nonterminals from
+@secref["sql-syntax"], respectively, except that the macro name is
+recognized by its identifier binding rather than symbolically.
+
+@examples[#:eval the-eval
+(select a b c #:from mytable #:where (> a 10))
+(insert #:into mytable #:set [a 1] [b 2] [c 3])
+(insert #:into mytable
+        #:from (select a b c 
+                       #:from other_table
+                       #:where (is-not-null d)))
+]}
+
+@deftogether[[
+@defform*[[(create-table maybe-temp table-name
+              #:columns column-def ...
+              maybe-constraints)
+           (create-table maybe-temp #:as statement)]]
+@defform[(create-view maybe-temp view-name
+           statement)]
+]]{
+
+Like @racket[select] etc, but for the DDL nonterminals
+@svar[create-table-statement] and @svar[create-view-statement],
+respectively.
+
+@examples[#:eval the-eval
+(create-table numbers
+  #:columns [n integer #:not-null] [t text]
+  #:constraints (primary-key n))
+]}
+
+@defproc[(sql-statement? [v any/c]) boolean?]{
+
+Returns @racket[#t] if @racket[v] is a statement value returned by one
+of the forms in this section such as @racket[select], @racket[#f]
+otherwise.
+}
+
+@defproc[(sql-statement->string [statement sql-statement?]
+                                [dialect (or/c symbol? #f) (current-sql-dialect)])
+         string?]{
+
+Produces SQL code as a string for the given @racket[statement]
+according to the rules of @racket[dialect].
+}
 
 
 @; ============================================================
@@ -338,9 +409,11 @@ expression is supported in every SQL dialect.
              (@#,lit{case} #:of scalar-expr [scalar-expr scalar-expr] ... maybe-else)
              (compare-operator scalar-expr #:some table-expr)
              (compare-operator scalar-expr #:all table-expr)
-             (operator/special scalar-expr ...)
              (name scalar-expr ...)
-             table-expr]
+             table-expr
+             (operator/special scalar-expr ...)
+             ?
+             (@#,lit{unquote} racket-expr)]
 ]
 
 @specsubform[(@#,lit{exists} table-expr)]{
@@ -387,11 +460,54 @@ expression and a table expression.
 (< x #:all (select y #:from ys))    (code:comment "x < ALL (select y FROM ys)")
 ]}
 
+@specsubform[(name scalar-expr ...)]{
+
+Represents an ordinary function call; no arity checking is done.
+@racketblock[
+(coalesce x y z)              (code:comment "coalesce(x, y, z)")
+]}
+
+@specsubform[table-expr]{
+
+Represents a subquery; the query must return at most one row.
+
+@racketblock[
+(select y #:from ys #:where (x = 0))  (code:comment "(SELECT y FROM ys WHERE x = 0)")
+]}
+
+
+@deftogether[[
+@defform[(scalar-expr-qq scalar-expr)]
+@defproc[(scalar-expr-ast? [v any/c]) boolean?]
+]]{
+
+Quasiquotation macro and predicate, respectively, for
+@svar[scalar-expr].
+
+@examples[#:eval the-eval
+(sql-ast->string (scalar-expr-qq mytable.mycolumn))
+(sql-ast->string (scalar-expr-qq 42))
+(sql-ast->string (scalar-expr-qq "Salutations"))
+(sql-ast->string (scalar-expr-qq "a 'tricky' string"))
+(sql-ast->string (scalar-expr-qq (log (- 1 p))))
+(sql-ast->string (scalar-expr-qq (and (> x 10) (< x 55))))
+(sql-ast->string (scalar-expr-qq (coalesce x y z)))
+(sql-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
+(sql-ast->string (scalar-expr-qq (extract YEAR dob)))
+(sql-ast->string (scalar-expr-qq (is-null mytable.mycolumn)))
+(sql-ast->string (scalar-expr-qq (like ph_num "555-____")))
+(sql-ast->string (scalar-expr-qq (|| lname ", " fname)))
+]}
+
+@; ----------------------------------------
+@subsubsection[#:tag "special-operators"]{Special Scalar Expressions}
+
 @specsubform[(operator/special scalar-expr ...)]{
 
-Used to represent uses of SQL operators, standard SQL functions that
-don't use ordinary function-call notation, and a few other special
-cases.
+This function-like syntax is used to represent uses of SQL operators,
+standard SQL functions that don't use ordinary function-call notation,
+and a few other special cases, listed below.
+}
 
 @itemlist[
 
@@ -502,53 +618,14 @@ prefixed by a dot.
 (%ref x 1)                    (code:comment "(x)[1]")
 (%ref x 1 2 3)                (code:comment "(x)[1,2,3]")
 ]}
-]}
-
-@specsubform[(name scalar-expr ...)]{
-
-Represents an ordinary function call; no arity checking is done.
-@racketblock[
-(coalesce x y z)              (code:comment "coalesce(x, y, z)")
-]}
-
-@specsubform[table-expr]{
-
-Represents a subquery; the query must return at most one row.
-
-@racketblock[
-(select y #:from ys #:where (x = 0))  (code:comment "(SELECT y FROM ys WHERE x = 0)")
-]}
-
-
-@deftogether[[
-@defform[(scalar-expr-qq scalar-expr)]
-@defproc[(scalar-expr-ast? [v any/c]) boolean?]
-]]{
-
-Quasiquotation macro and predicate, respectively, for
-@svar[scalar-expr].
-
-@examples[#:eval the-eval
-(sql-ast->string (scalar-expr-qq mytable.mycolumn))
-(sql-ast->string (scalar-expr-qq 42))
-(sql-ast->string (scalar-expr-qq "Salutations"))
-(sql-ast->string (scalar-expr-qq "a 'tricky' string"))
-(sql-ast->string (scalar-expr-qq (log (- 1 p))))
-(sql-ast->string (scalar-expr-qq (and (> x 10) (< x 55))))
-(sql-ast->string (scalar-expr-qq (coalesce x y z)))
-(sql-ast->string (scalar-expr-qq (cast "2015-03-15" DATE)))
-(sql-ast->string (scalar-expr-qq (extract YEAR dob)))
-(sql-ast->string (scalar-expr-qq (is-null mytable.mycolumn)))
-(sql-ast->string (scalar-expr-qq (like ph_num "555-____")))
-(sql-ast->string (scalar-expr-qq (|| lname ", " fname)))
-]}
+]
 
 
 @; ----------------------------------------
-@subsection[#:tag "unquote"]{Placeholders and Unquote}
+@subsubsection[#:tag "unquote"]{Placeholders and Unquoted Parameters}
 
-There are two additional variants of @svar[scalar-expr] that enable
-the construction of parameterized queries. The first is a placeholder,
+There are two variants of @svar[scalar-expr] that enable
+the construction of parameterized queries. The first is the placeholder,
 written @lit{?} (regardless of the notation used by the database the
 query is to be sent to). The second is the @lit{unquote} form, which
 is equivalent to inserting a placeholder and also providing the
@@ -809,7 +886,8 @@ Quasiquotation macro and predicate, respectively, for
     (@#,lit{create-table} maybe-temp table-name
       #:columns column-def ...
       maybe-constraints)
-    (@#,lit{create-table} maybe-temp #:as statement)]
+    (@#,lit{create-table} maybe-temp table-name
+      #:as statement)]
 
 [column-def [column-ident type maybe-not-null]]
 [maybe-not-null (code:line)
@@ -845,7 +923,7 @@ Quasiquotation macro and predicate, respectively, for
 
 @defparam[current-sql-dialect
           dialect
-          (or/c symbol? dbsystem? connection?)]{
+          (or/c symbol? #f)]{
 
 Controls the default dialect used when converting SQL ASTs to strings
 using functions such as @racket[sql-ast->string].
@@ -856,82 +934,6 @@ generation of SQL code for a query method automatically uses the
 dialect associated with the connection the query is performed on.
 }
 
-
-@; ============================================================
-@section[#:tag "statement-forms"]{Statement Forms}
-
-The macros in this section create statement values suitable for
-passing to the query functions of the @racketmodname[db]
-library. These statement values are different from @svar[statement]
-ASTs.
-
-Note: the printing of a statement value is controlled by
-@racket[(current-sql-dialect)], but the code it generates when passed
-to a query function is determined by the dialect of the connection the
-query is performed on.
-
-@deftogether[[
-@defform*[[(select select-item ... select-clause ...)
-           (select select-clause ...)]]
-
-@defform*[[(insert #:into table-name assign-clause)
-           (insert #:into table-name maybe-columns #:from table-expr)]]
-
-@defform[(update table-name assign-clause maybe-where)]
-
-@defform[(delete #:from table-name maybe-where)]
-]]{
-
-Produces a statement value that can be passed to a @racketmodname[db]
-query function. The syntax of the macros corresponds to the syntax of
-the @svar[select-statement], @svar[insert-statement],
-@svar[update-statement], and @svar[delete-statement] nonterminals,
-respectively, except that the macro name is recognized by its
-identifier binding rather than symbolically.
-
-@examples[#:eval the-eval
-(select a b c #:from mytable #:where (> a 10))
-(insert #:into mytable #:set [a 1] [b 2] [c 3])
-(insert #:into mytable
-        #:from (select a b c 
-                       #:from other_table
-                       #:where (is-not-null d)))
-]}
-
-@deftogether[[
-@defform*[[(create-table maybe-temp table-name
-              #:columns column-def ...
-              maybe-constraints)
-           (create-table maybe-temp #:as statement)]]
-@defform[(create-view maybe-temp view-name
-           statement)]
-]]{
-
-Like @racket[select] etc, but for the DDL nonterminals
-@svar[create-table-statement] and @svar[create-view-statement],
-respectively.
-
-@examples[#:eval the-eval
-(create-table numbers
-  #:columns [n integer #:not-null] [t text]
-  #:constraints
-  (primary-key n))
-]}
-
-@defproc[(sql-statement? [v any/c]) boolean?]{
-
-Returns @racket[#t] if @racket[v] is a statement value returned by one
-of the forms in this section such as @racket[select], @racket[#f]
-otherwise.
-}
-
-@defproc[(sql-statement->string [statement sql-statement?]
-                                [dialect (or/c symbol? #f) (current-sql-dialect)])
-         string?]{
-
-Produces SQL code as a string for the given @racket[statement]
-according to the rules of @racket[dialect].
-}
 
 @; ============================================================
 @section[#:tag "escapes"]{Dynamic Statement Composition and SQL Injection}

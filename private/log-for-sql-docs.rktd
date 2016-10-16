@@ -100,30 +100,11 @@
     (q 1 "the loneliest number"))))
  #""
  #"")
-((current-sql-dialect 'postgresql)
+((parameterize
+  ((current-sql-dialect 'postgresql))
+  (print (insert #:into the_numbers #:set (n ,n1) (d ,d1))))
  ((3) 0 () 0 () () (c values c (void)))
- #""
- #"")
-((insert #:into the_numbers #:set (n ,n1) (d ,d1))
- ((3)
-  1
-  (((lib "sql/private/syntax.rkt") . deserialize-info:sql-statement-v0))
-  0
-  ()
-  ()
-  (c
-   values
-   c
-   (0
-    (f
-     statement:insert
-     (f id:normal the_numbers)
-     (c (f id:normal n) c (f id:normal d))
-     (f
-      table-expr:values
-      (c (c (f scalar:placeholder) c (f scalar:placeholder)))))
-    (q 1 "the loneliest number"))))
- #""
+ #"(sql-statement \"INSERT INTO the_numbers (n, d) VALUES ($1, $2)\" 1 \"the loneliest number\")"
  #"")
 ((query-exec
   pgc
