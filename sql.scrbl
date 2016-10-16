@@ -29,7 +29,7 @@
 
 @defmodule[sql]
 
-This library provides an S-expression notation for a useful subset of
+This library provides an S-expression notation for a subset of
 SQL. It provides forms that produce statements (as opaque values
 rather than strings) that can be used directly with Racket's
 @racketmodname[db] library. It also provides macros and functions for
@@ -200,12 +200,10 @@ query function. The syntax corresponds to the syntax of the
 @defform[(delete #:from table-name maybe-where)]
 ]]{
 
-Produces a statement value that can be passed to a @racketmodname[db]
-query function. The syntax of the macros corresponds to the syntax of
-the @svar[select-statement], @svar[insert-statement],
+Like @racket[sql], but specialized to the syntax of the
+@svar[select-statement], @svar[insert-statement],
 @svar[update-statement], and @svar[delete-statement] nonterminals from
-@secref["sql-syntax"], respectively, except that the macro name is
-recognized by its identifier binding rather than symbolically.
+@secref["sql-syntax"], respectively.
 
 @examples[#:eval the-eval
 (select a b c #:from mytable #:where (> a 10))
@@ -214,18 +212,28 @@ recognized by its identifier binding rather than symbolically.
         #:from (select a b c 
                        #:from other_table
                        #:where (is-not-null d)))
-]}
+]
+
+Equivalent to 
+@racketblock[
+(sql (@#,lit{select} select-item ... select-clause ...))
+(sql (@#,lit{insert} #:into table-name assign-clause))
+]
+and so forth.
+}
+
 
 @deftogether[[
 @defform*[[(create-table maybe-temp table-name
               #:columns column-def ...
               maybe-constraints)
-           (create-table maybe-temp #:as statement)]]
+           (create-table maybe-temp table-name
+              #:as statement)]]
 @defform[(create-view maybe-temp view-name
            statement)]
 ]]{
 
-Like @racket[select] etc, but for the DDL nonterminals
+Like @racket[sql], but specialized to the syntax of the DDL
 @svar[create-table-statement] and @svar[create-view-statement],
 respectively.
 
@@ -233,7 +241,16 @@ respectively.
 (create-table numbers
   #:columns [n integer #:not-null] [t text]
   #:constraints (primary-key n))
-]}
+]
+
+Equivalent to
+@racketblock[
+(sql (@#,lit{create-table} maybe-temp table-name
+       #:columns column-def ...
+       maybe-constraints))
+]
+and so forth.
+}
 
 @defproc[(sql-statement? [v any/c]) boolean?]{
 
@@ -952,7 +969,15 @@ dialect associated with the connection the query is performed on.
 
 
 @; ============================================================
-@section[#:tag "escapes"]{Dynamic Statement Composition and SQL Injection}
+@subsection[#:tag "escapes"]{Dynamic Statement Composition and SQL Injection}
+
+This library allows the dynamic composition of statements and the
+injection of SQL text using the following extensions to the SQL
+grammar.
+
+@bold{Warning:} Never use the @lit{INJECT} forms to include SQL
+computed from an untrusted source. Use placeholders or
+@racket[unquote] parameters instead; see @secref["unquote"].
 
 @racketgrammar*[
 
@@ -968,3 +993,6 @@ dialect associated with the connection the query is performed on.
            (@#,lit{TableRef:AST} (@#,lit{unquote} ast-racket-expr))
            (@#,lit{TableRef:INJECT} (@#,lit{unquote} string-racket-expr))]
 ]
+
+
+@(close-eval db-eval)
