@@ -23,12 +23,11 @@
          select-qq
          ddl-qq
 
-         with
+         sql
          select
          insert
          update
          delete
-
          create-table
          create-view
 
@@ -44,4 +43,3 @@
    (->* [sql-statement?] [(or/c symbol? #f)] string?)]
   [current-sql-dialect
    (parameter/c (or/c symbol? #f))]))
-

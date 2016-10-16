@@ -134,9 +134,16 @@
 
 ;; ============================================================
 
+(define-syntax (sql stx)
+  (syntax-parse stx
+    [(_ :Statement) (make-stmt-expr stx ($ ast))]
+    [(_ :DDL) (make-stmt-expr stx ($ ast))]))
+
+#|
 (define-syntax (with stx)
   (syntax-parse stx
     [:WithInner (make-stmt-expr stx ($ ast))]))
+|#
 
 (define-syntax (select stx)
   (syntax-parse stx

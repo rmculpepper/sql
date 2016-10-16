@@ -172,6 +172,22 @@ The printing of a statement value is controlled by
 to a query function is determined by the dialect of the connection the
 query is performed on.
 
+@defform*[[(sql statement)
+           (sql ddl-statement)]]{
+
+Produces a statement value that can be passed to a @racketmodname[db]
+query function. The syntax corresponds to the syntax of the
+@svar[statement] or @svar[ddl-statement] nonterminals from
+@secref["sql-syntax"].
+
+@examples[#:eval the-eval
+(sql (select a b c #:from mytable #:where (> a 10)))
+(sql (insert #:into mytable #:set [a 1] [b 2] [c 3]))
+(sql (create-table numbers
+       #:columns [n integer #:not-null] [t text]
+       #:constraints (primary-key n)))
+]}
+
 @deftogether[[
 @defform*[[(select select-item ... select-clause ...)
            (select select-clause ...)]]
