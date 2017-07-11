@@ -156,7 +156,7 @@
     (define/public (emit-select-order so)
       (match so
         [(select:order column asc/desc)
-         (J (emit-name column)
+         (J (emit-scalar-expr column)
             (case asc/desc
               [(asc) " ASC"]
               [(desc) " DESC"]
