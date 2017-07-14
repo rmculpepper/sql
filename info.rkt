@@ -11,6 +11,7 @@
 (define build-deps
   '("racket-doc"
     "scribble-lib"
+    "sandbox-lib"
     "db-doc"))
 
 ;; ========================================
