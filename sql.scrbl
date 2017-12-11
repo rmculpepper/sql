@@ -224,10 +224,10 @@ and so forth.
 
 
 @deftogether[[
-@defform*[[(create-table maybe-temp table-name
+@defform*[[(create-table maybe-temp maybe-ifnotexists table-name
               #:columns column-def ...
               maybe-constraints)
-           (create-table maybe-temp table-name
+           (create-table maybe-temp maybe-ifnotexists table-name
               #:as statement)]]
 @defform[(create-view maybe-temp view-name
            statement)]
@@ -250,6 +250,8 @@ Equivalent to
        maybe-constraints))
 ]
 and so forth.
+
+@history[#:changed "1.1" @elem{Added @racket[#:if-not-exists] option.}]
 }
 
 @defproc[(sql-statement? [v any/c]) boolean?]{
@@ -916,11 +918,14 @@ Quasiquotation macro and predicate, respectively, for
                create-view-statement]
 
 [create-table-statement
-    (@#,lit{create-table} maybe-temp table-name
+    (@#,lit{create-table} maybe-temp maybe-ifnotexists table-name
       #:columns column-def ...
       maybe-constraints)
-    (@#,lit{create-table} maybe-temp table-name
+    (@#,lit{create-table} maybe-temp maybe-ifnotexists table-name
       #:as statement)]
+
+[maybe-temp (code:line) (code:line #:temporary)]
+[maybe-ifnotexists (code:line) (code:line #:if-not-exists)]
 
 [column-def [column-ident type maybe-not-null]]
 [maybe-not-null (code:line)
@@ -941,6 +946,9 @@ Quasiquotation macro and predicate, respectively, for
       statement)]
 
 ]
+
+@history[#:changed "1.1" @elem{Added @racket[#:if-not-exists] option
+for @lit{create-table}.}]
 
 @deftogether[[
 @defform[(ddl-qq ddl-statement)]

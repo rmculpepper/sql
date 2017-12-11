@@ -71,16 +71,25 @@
 
 (define-syntax-class CreateTableInner
   #:attributes (ast) #:commit
-  (pattern (_ (~optional (~and #:temporary temp?)) name:Name
+  (pattern (_ temp:MaybeTemporary ine:MaybeIfNotExists
+              name:Name
               #:columns c:ColumnDef ...
               tc:TableConstraints)
-           #:attr ast (ddl:create-table ($ name.ast)
-                                        (and ($ temp?) #t)
-                                        ($ c.ast)
-                                        ($ tc.ast)))
-  (pattern (_ (~optional (~and #:temporary temp?))
+           #:attr ast (ddl:create-table ($ name.ast) ($ temp.?) ($ ine.?)
+                                        ($ c.ast) ($ tc.ast)))
+  (pattern (_ temp:MaybeTemporary ine:MaybeIfNotExists
               name:Name #:as s:Statement)
-           #:attr ast (ddl:create-table-as ($ name.ast) (and ($ temp?) #t) ($ s.ast))))
+           #:attr ast (ddl:create-table-as ($ name.ast) ($ temp.?) ($ ine.?) ($ s.ast))))
+
+(define-splicing-syntax-class MaybeTemporary
+  #:attributes (?)
+  (pattern (~seq #:temporary) #:attr ? #t)
+  (pattern (~seq) #:attr ? #f))
+
+(define-splicing-syntax-class MaybeIfNotExists
+  #:attributes (?)
+  (pattern (~seq #:if-not-exists) #:attr ? #t)
+  (pattern (~seq) #:attr ? #f))
 
 (define-syntax-class ColumnDef
   #:attributes (ast) #:commit

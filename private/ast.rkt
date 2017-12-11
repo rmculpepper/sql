@@ -42,12 +42,12 @@
       (ddl:create-view? x)))
 
 ;; A DDL is one of
-;; - (ddl:create-table Name Boolean (Listof Column) (Listof Constraint))
-;; - (ddl:create-table-as Name Boolean Statement)
+;; - (ddl:create-table Name Boolean Boolean (Listof Column) (Listof Constraint))
+;; - (ddl:create-table-as Name Boolean Boolean Statement)
 ;; - (ddl:create-view Name Statement)
 ;; A Column is (column Ident ScalarExpr Boolean)
-(struct ddl:create-table (name temp? columns constraints) #:prefab)
-(struct ddl:create-table-as (name temp? select) #:prefab)
+(struct ddl:create-table (name temp? ifnotexists? columns constraints) #:prefab)
+(struct ddl:create-table-as (name temp? ifnotexists? select) #:prefab)
 (struct ddl:create-view (name temp? rhs) #:prefab)
 (struct column (name type not-null?) #:prefab)
 

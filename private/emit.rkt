@@ -74,8 +74,10 @@
 
     (define/public (emit-create-table s)
       (match s
-        [(ddl:create-table name temp? columns constraints)
-         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-name name)
+        [(ddl:create-table name temp? ifnotexists? columns constraints)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE "
+            (if ifnotexists? "IF NOT EXISTS " "")
+            (emit-name name)
             " (" (J-join (map emit-column columns) ", ")
             (if (and (pair? columns) (pair? constraints)) ", " "")
             (J-join (map emit-constraint constraints) ", ")
@@ -83,8 +85,10 @@
 
     (define/public (emit-create-table-as s)
       (match s
-        [(ddl:create-table-as name temp? rhs)
-         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE " (emit-name name)
+        [(ddl:create-table-as name temp? ifnotexists? rhs)
+         (J "CREATE " (if temp? "TEMPORARY " "") "TABLE "
+            (if ifnotexists? "IF NOT EXISTS " "")
+            (emit-name name)
             " AS (" (emit-statement rhs) ")")]))
 
     (define/public (emit-column c)
