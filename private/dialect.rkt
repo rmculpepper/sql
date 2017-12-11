@@ -41,6 +41,9 @@
     some/all-op?        ;; op:Symbol -> Boolean
     some/all-allow-scalar ;; -> Boolean
     special-var         ;; var:Symbol -> (U String #f)
+
+    ;; INSERT on conflict style
+    insert/on-conflict-style ;; -> (U 'postgresql 'sqlite3 #f)
     ))
 
 ;; Arity is defined in ast.rkt
@@ -219,6 +222,8 @@
 
     (define/public (special-var-table)
       standard-special-vars)
+
+    (define/public (insert/on-conflict-style) #f)
     ))
 
 ;; ------------------------------------------------------------
@@ -265,6 +270,8 @@
 
     (define/override (some/all-allow-scalar)
       #t)
+
+    (define/override (insert/on-conflict-style) 'postgresql)
     ))
 
 ;; string-ascii-downcase : String -> String
@@ -312,6 +319,8 @@
 
     (define/override (some/all-op? op)
       (or (memq op '(<=> !=)) (super some/all-op? op)))
+
+    (define/override (insert/on-conflict-style) 'mysql)
     ))
 
 ;; ------------------------------------------------------------
@@ -372,6 +381,8 @@
     (define/override (operator-table) sqlite3-ops)
     (define/override (some/all-op? op) #f) ;; SQLite doesn't support
     (define/override (some/all-allow-scalar) #f)
+
+    (define/override (insert/on-conflict-style) 'sqlite3)
     ))
 
 ;; ============================================================

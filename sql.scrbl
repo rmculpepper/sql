@@ -192,8 +192,8 @@ query function. The syntax corresponds to the syntax of the
 @defform*[[(select select-item ... select-clause ...)
            (select select-clause ...)]]
 
-@defform*[[(insert #:into table-name assign-clause)
-           (insert #:into table-name maybe-columns #:from table-expr)]]
+@defform*[[(insert #:into table-name assign-clause maybe-conflict)
+           (insert #:into table-name maybe-columns #:from table-expr maybe-conflict)]]
 
 @defform[(update table-name assign-clause maybe-where)]
 
@@ -220,6 +220,8 @@ Equivalent to
 (sql (@#,lit{insert} #:into table-name assign-clause))
 ]
 and so forth.
+
+@history[#:changed "1.1" @elem{Added @racket[#:or-ignore] for @racket[insert].}]
 }
 
 
@@ -847,16 +849,20 @@ clause may not also be used.
 
 @racketgrammar*[
 
-[insert-statement (@#,lit{insert} #:into table-name assign-clause)
+[insert-statement (@#,lit{insert} #:into table-name assign-clause maybe-conflict)
                   (@#,lit{insert} #:into table-name maybe-columns
-                                  #:from table-expr)]
+                                  #:from table-expr maybe-conflict)]
 
 [assign-clause (code:line #:set [column-ident scalar-expr] ...)]
 
 [maybe-columns (code:line)
                (code:line #:columns column-ident ...)]
 
+[maybe-conflict (code:line)
+                (code:line #:or-ignore)]
 ]
+
+@history[#:changed "1.1" @elem{Added @racket[#:or-ignore].}]
 
 @bold{Update}
 

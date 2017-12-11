@@ -204,9 +204,32 @@
 
     (define/public (emit-insert i)
       (match i
-        [(statement:insert table columns source)
-         (J "INSERT INTO "
-            (emit-name table)
+        [(statement:insert table columns source on-conflict)
+         (case on-conflict
+           [(#f) (J "INSERT INTO " (emit-insert* i))]
+           [(ignore)
+            (case (send dialect insert/on-conflict-style)
+              [(sqlite3) (J "INSERT OR IGNORE INTO " (emit-insert* i))]
+              [(postgresql) (J "INSERT INTO " (emit-insert* i) " ON CONFLICT DO NOTHING ")]
+              [(mysql)
+               ;; MySQL "INSERT IGNORE" is evil; it suppresses errors unrelated to UNIQUE
+               ;; constraints. "ON DUPLICATE KEY UPDATE" requires at least one assignment
+               ;; so we generate a dummy assignment that should have no effect.
+               ;; See https://stackoverflow.com/questions/2366813/on-duplicate-key-ignore
+               (unless (pair? columns)
+                 (error 'emit-insert "ignore option not supported with empty column list~a"
+                        (send dialect error-line)))
+               (J "INSERT INTO " (emit-insert* i)
+                  " ON DUPLICATE KEY /* DO NOTHING */ UPDATE "
+                  (let ([col0 (emit-ident (car columns))])
+                    (J col0 " = " col0 " ")))]
+              [else (error 'emit-insert "ignore option not supported~a"
+                           (send dialect error-line))])])]))
+
+    (define/public (emit-insert* i)
+      (match i
+        [(statement:insert table columns source _)
+         (J (emit-name table)
             (emit-insert-columns columns)
             (emit-table-expr source))]))
 

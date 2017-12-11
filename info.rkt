@@ -4,6 +4,8 @@
 ;; pkg info
 
 (define collection "sql")
+(define version "1.1")
+
 (define deps
   '(["base" #:version "6.3"]
     "rackunit-lib"

@@ -270,16 +270,19 @@
   #:attributes (ast) #:commit
   #:description #f
   (pattern (_ target:InsertTarget
-              assign:AssignClause)
+              assign:AssignClause
+              on:OnConflict)
            #:attr ast (statement:insert
                        ($ target.ast)
                        (map update:assign-column ($ assign.ast))
                        (table-expr:values
-                        (list (map update:assign-expr ($ assign.ast))))))
+                        (list (map update:assign-expr ($ assign.ast))))
+                       ($ on.ast)))
   (pattern (_ target:InsertTarget
               (~optional cols:InsertColumns)
-              src:InsertSource)
-           #:attr ast (statement:insert ($ target.ast) ($ cols.ast) ($ src.ast))))
+              src:InsertSource
+              on:OnConflict)
+           #:attr ast (statement:insert ($ target.ast) ($ cols.ast) ($ src.ast) ($ on.ast))))
 
 (define-splicing-syntax-class InsertTarget
   #:attributes (ast)
@@ -294,6 +297,13 @@
   (pattern (~seq #:values e:ScalarExpr ...)
            #:attr ast (table-expr:values (list ($ e.ast))))
   (pattern (~seq #:from :TableExpr)))
+
+(define-splicing-syntax-class OnConflict
+  #:attributes (ast)
+  (pattern (~seq #:or-ignore)
+           #:attr ast 'ignore)
+  (pattern (~seq)
+           #:attr ast #f))
 
 ;; ============================================================
 ;; Update Statement
