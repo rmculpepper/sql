@@ -172,7 +172,8 @@
 (define-syntax-class SelectInner
   #:attributes (ast) #:commit
   #:description #f
-  (pattern (_ vs:SelectValues
+  (pattern (_ (~optional distinct:DistinctClause)
+              vs:SelectValues
               (~or (~optional sel:SelectValuesClause)
                    (~optional from:SelectFromClause)
                    (~optional where:WhereClause)
@@ -187,21 +188,29 @@
            #:fail-when (and (pair? ($ having.ast))
                             (not (pair? ($ groupby.columns))))
                        "#:having clause with empty #:group-by"
-           #:attr ast (statement:select (append ($ vs.ast) (or ($ sel.ast) null))
-                                   (or ($ from.ast) null)
-                                   (or ($ where.ast) null)
-                                   (or ($ groupby.columns) null)
-                                   (or ($ having.ast) null)
-                                   (and (or ($ order.ast) ($ limit.ast) ($ offset.ast))
-                                        (select:extension
-                                         (or ($ order.ast) null)
-                                         ($ limit.ast)
-                                         ($ offset.ast))))))
+           #:attr ast (statement:select
+                       ($ distinct.ast)
+                       (append ($ vs.ast) (or ($ sel.ast) null))
+                       (or ($ from.ast) null)
+                       (or ($ where.ast) null)
+                       (or ($ groupby.columns) null)
+                       (or ($ having.ast) null)
+                       (and (or ($ order.ast) ($ limit.ast) ($ offset.ast))
+                            (select:extension
+                             (or ($ order.ast) null)
+                             ($ limit.ast)
+                             ($ offset.ast))))))
 
 (define-splicing-syntax-class SelectValues
   #:attributes ([ast 1])
   #:description #f
   (pattern (~seq :SelectItem ...)))
+
+(define-splicing-syntax-class DistinctClause
+  #:attributes (ast)
+  #:description #f
+  (pattern (~seq #:all) #:attr ast 'all)
+  (pattern (~seq #:distinct) #:attr ast 'distinct))
 
 (define-splicing-syntax-class SelectValuesClause
   #:attributes ([ast 1] kw)

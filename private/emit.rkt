@@ -140,8 +140,9 @@
 
     (define/public (emit-select s)
       (match s
-        [(statement:select vals from where groupby having ext)
+        [(statement:select distinct vals from where groupby having ext)
          (J "SELECT "
+            (case distinct [(all) "ALL "] [(distinct) "DISTINCT "] [(#f) ""])
             (J-join (map emit-select-item vals) ", ")
             (emit-select-from from)
             (emit-where where)

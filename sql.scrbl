@@ -817,8 +817,8 @@ expressions.
 
 @racketgrammar*[
 
-[select-statement (@#,lit{select} select-item ... select-clause ...)
-                  (@#,lit{select} select-clause ...)]
+[select-statement (@#,lit{select} distinct-clause select-item ... select-clause ...)
+                  (@#,lit{select} distinct-clause select-clause ...)]
 
 [select-clause (code:line #:values select-item ...)
                (code:line #:from table-ref ...)
@@ -831,6 +831,10 @@ expressions.
 
 [select-item scalar-expr
              (@#,lit{as} scalar-expr ident)]
+
+[distinct-clause (code:line)
+                 (code:line #:all)
+                 (code:line #:distinct)]
 
 [order-item (code:line scalar-expr #:asc)
             (code:line scalar-expr #:desc)

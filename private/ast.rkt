@@ -93,9 +93,10 @@
 ;; Select
 
 ;; A Select is 
-;; (statement:select (Listof SelectItem) (Listof TableRef) (Listof ScalarExpr)
+;; (statement:select (U 'all 'distinct #f) (Listof SelectItem)
+;;                   (Listof TableRef) (Listof ScalarExpr)
 ;;                   (Listof Name) (Listof ScalarExpr) (U SelectExtension #f))
-(struct statement:select (vals from where groupby having ext) #:prefab)
+(struct statement:select (distinct vals from where groupby having ext) #:prefab)
 
 ;; A SelectItem is one of
 ;; - (select-item:as ScalarExpr Ident)
