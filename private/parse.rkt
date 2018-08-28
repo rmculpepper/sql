@@ -359,7 +359,7 @@
   #:attributes (ast) #:commit
   #:datum-literals (TableRef:AST TableRef:INJECT as)
   (pattern (TableRef:AST ~! u)
-           #:declare u (UnquoteExpr/c #'table-ref?)
+           #:declare u (UnquoteExpr/c #'table-ref-ast?)
            #:attr ast ($ u.ast))
   (pattern (TableRef:INJECT ~! inj:StringOrUnquote)
            #:attr ast (table-ref:inject ($ inj.ast)))
@@ -376,7 +376,7 @@
   #:attributes (ast) #:commit
   #:datum-literals (TableExpr:AST TableExpr:INJECT cross-join values values* select)
   (pattern (TableExpr:AST ~! u)
-           #:declare u (UnquoteExpr/c #'table-expr?)
+           #:declare u (UnquoteExpr/c #'table-expr-ast?)
            #:attr ast ($ u.ast))
   (pattern (TableExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (table-expr:inject ($ inj.ast)))
@@ -443,7 +443,7 @@
   #:attributes (ast) #:commit
   #:description "scalar expression"
   #:datum-literals (ScalarExpr:AST ScalarExpr:INJECT ? unquote case exists in)
-  (pattern (ScalarExpr:AST ~! (~var u (UnquoteExpr/c #'scalar-expr?)))
+  (pattern (ScalarExpr:AST ~! (~var u (UnquoteExpr/c #'scalar-expr-ast?)))
            #:attr ast ($ u.ast))
   (pattern (ScalarExpr:INJECT ~! inj:StringOrUnquote)
            #:attr ast (scalar:inject ($ inj.ast)))
