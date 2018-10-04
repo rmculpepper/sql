@@ -43,6 +43,7 @@
      ddl:create-table
      (f id:normal the_numbers)
      #t
+     #f
      (c
       (f column (f id:normal n) (f id:normal integer) #t)
       c
@@ -66,7 +67,8 @@
      statement:insert
      (f id:normal the_numbers)
      (c (f id:normal n) c (f id:normal d))
-     (f table-expr:values (q (0 "nothing"))))
+     (f table-expr:values (q (0 "nothing")))
+     #f)
     #f)))
  #""
  #"")
@@ -96,7 +98,8 @@
      (c (f id:normal n) c (f id:normal d))
      (f
       table-expr:values
-      (c (c (f scalar:placeholder) c (f scalar:placeholder)))))
+      (c (c (f scalar:placeholder) c (f scalar:placeholder))))
+     #f)
     (q 1 "the loneliest number"))))
  #""
  #"")
