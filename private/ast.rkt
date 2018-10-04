@@ -33,6 +33,12 @@
 ;; - (select (ScalarExpr:INJECT ,expr))  -- splices literal SQL code
 ;; And note that the first form is restricted to ScalarExpr.
 
+;; The data definitions in the rest of this module use the following
+;; convention: variants that exist both at compile time and run time
+;; are marked with a "-"; variants that exist only at compile time are
+;; marked with "*"; and variants that exist only at run time are
+;; marked with "+".
+
 ;; ----------------------------------------
 ;; DDL Statements
 
@@ -140,7 +146,8 @@
 ;; - (table-ref:name Name)
 ;; - (table-ref:as TableExpr Ident)
 ;; * (list 'unquote Syntax)
-;; * (table-ref:inject (U String (list 'unquote Syntax)))
+;; * (table-ref:inject (list 'unquote Syntax))
+;; - (table-ref:inject String)
 ;; - TableExpr
 
 (struct table-ref:name (name) #:prefab)
@@ -155,6 +162,16 @@
 
 ;; ----------------------------------------
 ;; Table Expressions
+
+;; A TableExpr is one of
+;; - (table-expr:cross-join TableRef TableRef)
+;; - (table-expr:join JoinType TableRef TableRef ???)
+;; - (table-expr:set-op SetOp TableRef TableRef ?? ??)
+;; - (table-expr:values (Listof (Listof ScalarExpr)))
+;; - (table-expr:select SelectStatement)
+;; * (list 'unquote Syntax)
+;; * (table-expr:inject (list 'unquote Syntax))
+;; - (table-expr:inject String)
 
 (struct table-expr:cross-join (t1 t2) #:prefab)
 (struct table-expr:join (type t1 t2 on) #:prefab)
@@ -196,8 +213,10 @@
 ;; - (scalar:some/all Symbol ScalarExpr (U 'some 'all) (U TableExpr ScalarExpr))
 ;; - (scalar:placeholder)
 ;; * (list 'unquote Syntax)
-;; * (scalar:inject (U String (list 'unquote Syntax)))
-;; * (scalar:unquote Syntax)  -- to be converted to placeholder
+;; * (scalar:inject (list 'unquote Syntax))
+;; - (scalar:inject String)
+;; * (scalar:unquote Syntax)  -- to be converted to placeholder (w/ expression)
+;; + (scalar:unquote Any)     -- to be converted to placeholder (w/ value)
 (struct scalar:app (op args) #:prefab)
 (struct scalar:table (te) #:prefab)
 (struct scalar:case (cases else) #:prefab)
