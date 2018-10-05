@@ -65,44 +65,75 @@
 ;; ============================================================
 ;; Helpers
 
+;; Goal: convert scalar:unquotes (if any) into placeholders and parameters.
+;; Problem: scalar:unquotes conflict with existing placeholders, and we also
+;; want to allow dynamic composition of ASTs containing scalar:unquotes.
+;; In general case, do conversion and checking on final AST at run time.
+;; But as optimization, if ct-AST has no AST-unquotes (NT:AST ,ast-expr),
+;; then do conversion and checking at compile time.
+
+(define (dynamic-sql-statement ast)
+  (define seen-placeholder? #f)
+  (define r-param-vals null)
+  (define ast*
+    (let loop ([x ast])
+      (match x
+        [(? scalar:placeholder? x)
+         (set! seen-placeholder? #t)
+         x]
+        [(scalar:unquote param-val)
+         (set! r-param-vals (cons param-val r-param-vals))
+         (scalar:placeholder)]
+        ;; Generic traversal cases
+        [(? list?)
+         (map loop x)]
+        [(app prefab-struct-key (? values key))
+         (define fields (cdr (vector->list (struct->vector x))))
+         (apply make-prefab-struct key (map loop fields))]
+        [_ x])))
+  (cond [(and seen-placeholder? (pair? r-param-vals))
+         (error 'dynamic-sql-statement
+                "cannot use both placeholders and unquoted values")]
+        [(pair? r-param-vals)
+         (sql-statement ast* (reverse r-param-vals))]
+        [else (sql-statement ast* #f)]))
+
 (begin-for-syntax
-  ;; Goal: convert scalar:unquotes (if any) into placeholders and
-  ;; parameters; but they conflict with existing placeholders. Cases:
-  ;; - exist scalar:placeholders, but no scalar:unquotes
-  ;;   => convert to string
-  ;; - exist scalar:unquotes, but no scalar:placeholders
-  ;;   => convert to prop:statement instance => statement-binding
-  ;; - exist both
-  ;;   => error! (for now---eventually would like to support)
-  ;; - exist neither
-  ;;   => convert to string
   (define (make-stmt-expr stx ast)
     (define seen-placeholder? #f)
+    (define seen-ast-unquote? #f)
     (define r-unquoted-exprs null)
     ;; Generic traversal
     (define (loop x)
-      (cond [(scalar:placeholder? x)
-             (set! seen-placeholder? #t)
-             x]
-            [(scalar:unquote? x)
-             (match (scalar:unquote-expr x)
-               [(list 'unquote expr)
-                (set! r-unquoted-exprs (cons expr r-unquoted-exprs))
-                (scalar:placeholder)]
-               [_ (raise-syntax-error #f (format "ill-formed scalar:unquote ast: ~e" ast) stx)])]
-            ;; Generic traversal cases
-            [(list? x)
-             (map loop x)]
-            [(prefab-struct-key x)
-             => (lambda (key)
-                  (define fields (cdr (vector->list (struct->vector x))))
-                  (apply make-prefab-struct key (map loop fields)))]
-            [else x]))
+      (match x
+        [(? scalar:placeholder? x)
+         (set! seen-placeholder? #t)
+         x]
+        [(scalar:unquote (list 'unquote expr))
+         (set! r-unquoted-exprs (cons expr r-unquoted-exprs))
+         (scalar:placeholder)]
+        [(scalar:unquote _)
+         (raise-syntax-error #f (format "ill-formed scalar:unquote ast: ~e" ast) stx)]
+        [(list 'unquote ast-expr)
+         (set! seen-ast-unquote? #t)
+         x]
+        ;; Generic traversal cases
+        [(? list?)
+         (map loop x)]
+        [(app prefab-struct-key (? values key))
+         (define fields (cdr (vector->list (struct->vector x))))
+         (apply make-prefab-struct key (map loop fields))]
+        [_ x]))
     (define ast* (loop ast))
     (cond [(and seen-placeholder? (pair? r-unquoted-exprs))
            (raise-syntax-error #f
              "cannot use both placeholders and unquoted values"
              stx)]
+          [seen-ast-unquote?
+           ;; Handle unquote/placeholders at run time; use original ast, not ast*!
+           ;; Use #'here lexical context for embedded AST unquotes
+           (with-syntax ([ast (datum->syntax #'here ast)])
+             #'(dynamic-sql-statement (quasiquote ast)))]
           [(pair? r-unquoted-exprs)
            ;; Use #'here lexical context for embedded AST unquotes
            (with-syntax ([ast* (datum->syntax #'here ast*)]
