@@ -1,6 +1,7 @@
 #lang racket/base
 (require (for-syntax racket/base
                      (rename-in syntax/parse [attribute $])
+                     racket/match
                      "ast.rkt"
                      "parse.rkt")
          racket/class
@@ -84,9 +85,11 @@
              (set! seen-placeholder? #t)
              x]
             [(scalar:unquote? x)
-             (set! r-unquoted-exprs
-                   (cons (scalar:unquote-expr x) r-unquoted-exprs))
-             (scalar:placeholder)]
+             (match (scalar:unquote-expr x)
+               [(list 'unquote expr)
+                (set! r-unquoted-exprs (cons expr r-unquoted-exprs))
+                (scalar:placeholder)]
+               [_ (raise-syntax-error #f (format "ill-formed scalar:unquote ast: ~e" ast) stx)])]
             ;; Generic traversal cases
             [(list? x)
              (map loop x)]

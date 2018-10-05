@@ -451,7 +451,7 @@
   (pattern n:exact-integer              #:attr ast (syntax-e #'n))
   (pattern s:str                        #:attr ast (syntax-e #'s))
   (pattern ?                            #:attr ast (scalar:placeholder))
-  (pattern (unquote ~! e:expr)          #:attr ast (scalar:unquote #'e))
+  (pattern (unquote ~! e:expr)          #:attr ast (scalar:unquote (list 'unquote #'e)))
   (pattern :Name)
   ;; ----
   (pattern (exists ~! te:TableExpr)

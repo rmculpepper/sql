@@ -215,7 +215,7 @@
 ;; * (list 'unquote Syntax)
 ;; * (scalar:inject (list 'unquote Syntax))
 ;; - (scalar:inject String)
-;; * (scalar:unquote Syntax)  -- to be converted to placeholder (w/ expression)
+;; * (scalar:unquote (list 'unquote Syntax))  -- to be converted to placeholder (w/ expression)
 ;; + (scalar:unquote Any)     -- to be converted to placeholder (w/ value)
 (struct scalar:app (op args) #:prefab)
 (struct scalar:table (te) #:prefab)
