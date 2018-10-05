@@ -544,6 +544,12 @@
                        "operator includes SQL comment syntax"
            #:attr ast (syntax-e #'x)))
 
+;; ------------------------------------------------------------
+(module names racket/base
+(require racket/match
+         "ast.rkt")
+(provide (all-defined-out))
+
 (define (parse-name s)
   (cond [(symbol? s)
          (parse-name (symbol->string s))]
@@ -601,7 +607,9 @@
 
 (define special-symbols-table
   (for/hash ([w (in-list special-symbols)]) (values w #t)))
-
+)
+(require 'names)
+;; ------------------------------------------------------------
 
 ;; ============================================================
 ;; Other

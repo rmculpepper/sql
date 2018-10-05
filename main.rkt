@@ -2,7 +2,8 @@
 (require racket/contract/base
          "private/syntax.rkt"
          "private/ast.rkt"
-         "private/emit.rkt")
+         "private/emit.rkt"
+         "private/dynamic.rkt")
 
 (provide ;; from private/ast.rkt
          statement-ast?
@@ -42,4 +43,11 @@
   [sql-statement->string
    (->* [sql-statement?] [(or/c symbol? #f)] string?)]
   [current-sql-dialect
-   (parameter/c (or/c symbol? #f))]))
+   (parameter/c (or/c symbol? #f))]
+
+  [make-ident-ast
+   (-> (or/c symbol? string?) ident-ast?)]
+  [make-name-ast
+   (-> (flat-rec-contract C symbol? name-ast? (listof C)) name-ast?)]
+  [value->scalar-expr-ast
+   (-> any/c scalar-expr-ast?)]))

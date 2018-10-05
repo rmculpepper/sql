@@ -1013,4 +1013,48 @@ computed from an untrusted source. Use placeholders or
 ]
 
 
+@defproc[(make-ident-ast [s (or/c symbol? string?)])
+         ident-ast?]{
+
+Produces an identifier AST from @racket[s] by applying the rules in
+@secref["names"] to the term @racket[`(Ident: ,s)].
+
+@examples[#:eval the-eval
+(sql-ast->string (make-ident-ast 'MyTable))
+(sql-ast->string (make-ident-ast "MyTable"))
+(sql-ast->string (make-ident-ast 'Select))
+(sql-ast->string (make-ident-ast 'a+b.c))
+]
+}
+
+@defproc[(make-name-ast [s (flat-rec-contract C symbol? name-ast? (listof C))])
+         name-ast?]{
+
+Produces a name AST from @racket[s] according to the following rules:
+@itemlist[
+
+@item{If @racket[s] is a symbol, it is parsed according to the @svar[symbol] case
+of the @svar[name] nonterminal (see @secref["names"]).}
+
+@item{If @racket[s] is a @racket[name-ast?], it is returned unchanged.}
+
+@item{If @racket[s] is a list, each component is parsed a @racket[name-ast?] and
+the components are joined.}
+]
+
+@examples[#:eval the-eval
+(sql-ast->string (make-name-ast 'x))
+(sql-ast->string (make-name-ast 'x.y.z))
+(sql-ast->string (make-name-ast (list 'x.y (make-name-ast 'a.b))))
+]
+}
+
+@defproc[(value->scalar-expr-ast [v any/c])
+         scalar-expr-ast?]{
+
+Produces a scalar expression AST representing the Racket value @racket[value].
+
+Equivalent to @racket[(scalar-expr-qq (unquote value))].
+}
+
 @(close-eval db-eval)
