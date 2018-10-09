@@ -848,6 +848,7 @@ order. If the first form of @svar[select-statement] is used (that is,
 with the initial @svar[select-item]s), then the @racket[#:values]
 clause may not also be used.
 
+@history[#:changed "1.2" @elem{Added @svar[distinct-clause]}]
 
 @bold{Insert}
 
@@ -998,6 +999,11 @@ computed from an untrusted source. Use placeholders or
 @racket[unquote] parameters instead; see @secref["unquote"].
 
 @racketgrammar*[
+[ident ....
+       (@#,lit{Ident:AST} (@#,lit{unquote} ast-racket-expr))]
+
+[name ....
+       (@#,lit{Name:AST} (@#,lit{unquote} ast-racket-expr))]
 
 [scalar-expr ....
              (@#,lit{ScalarExpr:AST} (@#,lit{unquote} ast-racket-expr))
@@ -1012,12 +1018,16 @@ computed from an untrusted source. Use placeholders or
            (@#,lit{TableRef:INJECT} (@#,lit{unquote} string-racket-expr))]
 ]
 
+@history[#:changed "1.2" @elem{Added @lit{Ident:AST} and @lit{Name:AST}}]
+
 
 @defproc[(make-ident-ast [s (or/c symbol? string?)])
          ident-ast?]{
 
 Produces an identifier AST from @racket[s] by applying the rules in
 @secref["names"] to the term @racket[`(Ident: ,s)].
+
+@history[#:added "1.2"]
 
 @examples[#:eval the-eval
 (sql-ast->string (make-ident-ast 'MyTable))
@@ -1042,6 +1052,8 @@ of the @svar[name] nonterminal (see @secref["names"]).}
 the components are joined.}
 ]
 
+@history[#:added "1.2"]
+
 @examples[#:eval the-eval
 (sql-ast->string (make-name-ast 'x))
 (sql-ast->string (make-name-ast 'x.y.z))
@@ -1055,6 +1067,8 @@ the components are joined.}
 Produces a scalar expression AST representing the Racket value @racket[value].
 
 Equivalent to @racket[(scalar-expr-qq (unquote value))].
+
+@history[#:added "1.2"]
 }
 
 @(close-eval db-eval)
