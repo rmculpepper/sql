@@ -346,6 +346,7 @@
 ;; A Name is one of
 ;; - Ident                -- unqualified name
 ;; - (qname Name Ident)   -- qualified name
+;; * (list 'unquote Syntax)
 (struct qname (qual id) #:prefab)
 
 (define (name-ast? x)
@@ -355,6 +356,7 @@
 ;; An Ident is one of
 ;; - (id:normal Symbol)   -- to be transmitted unquoted
 ;; - (id:literal String)  -- to be quoted when emitted
+;; * (list 'unquote Syntax)
 (struct id:normal (s) #:prefab)
 (struct id:quoted (s) #:prefab)
 

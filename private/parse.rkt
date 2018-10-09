@@ -503,26 +503,49 @@
 ;; - SQLite: http://www.sqlite.org/lang_keywords.html
 ;; - MySQL: http://dev.mysql.com/doc/refman/5.0/en/identifiers.html
 
-(define-syntax-class Name
+(define-syntax-class UntaggedIdent
   #:attributes (ast) #:commit
-  #:datum-literals (Ident: Name:)
+  #:description #f
   (pattern x:id
            #:fail-when (special-symbol? (syntax-e #'x))
                        "special symbol cannot be used as untagged identifier"
            #:attr ast (parse-name (syntax-e #'x))
-           #:fail-unless ($ ast) "illegal character in untagged identifier")
+           #:fail-unless ($ ast) "illegal character in untagged identifier"))
+
+(define-syntax-class TaggedIdent
+  #:attributes (ast) 
+  #:datum-literals (Ident: Ident:AST)
+  #:description #f
   (pattern (Ident: x:id)
            #:attr ast (id:normal (syntax-e #'x)))
   (pattern (Ident: x:str)
            #:attr ast (id:quoted (syntax-e #'x)))
-  (pattern (Name: part:Name ...+)
-           #:attr ast (name-list->name ($ part.ast))))
+  (pattern (Ident:AST ~! u)
+           #:declare u (UnquoteExpr/c #'ident-ast?)
+           #:attr ast ($ u.ast)))
 
 (define-syntax-class Ident
   #:attributes (ast) #:commit
-  (pattern x:Name
+  (pattern x:UntaggedIdent
            #:fail-when (qname? ($ x.ast)) "expected unqualified name"
+           #:attr ast ($ x.ast))
+  (pattern x:TaggedIdent
            #:attr ast ($ x.ast)))
+
+(define-syntax-class Name
+  #:attributes (ast) #:commit
+  #:datum-literals (Name: Name:AST)
+  (pattern x:UntaggedIdent
+           #:attr ast ($ x.ast))
+  (pattern x:TaggedIdent
+           #:attr ast ($ x.ast))
+  (pattern (Name:AST ~! u)
+           #:declare u (UnquoteExpr/c #'name-ast?)
+           #:attr ast ($ u.ast))
+  (pattern (Name: part:Name ...+)
+           #:attr ast (name-list->name ($ part.ast))))
+
+
 
 (define-syntax-class Operator
   #:attributes (ast arity) #:commit
@@ -603,6 +626,7 @@
     TableRef:AST TableRef:INJECT
     TableExpr:AST TableExpr:INJECT
     ScalarExpr:AST ScalarExpr:INJECT
+    Ident:AST Name:AST
     Ident: Name:))
 
 (define special-symbols-table
