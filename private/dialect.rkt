@@ -89,7 +89,7 @@
     [extract      2  ,(weird-fun-op "EXTRACT" '(#f " FROM "))]
     [overlay   (3 4) ,(weird-fun-op "OVERLAY" '(#f " PLACING " " FROM " " FOR "))]
     [position     2  ,(weird-fun-op "POSITION" '(#f " IN "))]
-    [substring (2 3) ,(weird-fun-op "SUBSTRING" '(#f "FROM" "FOR"))]
+    [substring (2 3) ,(weird-fun-op "SUBSTRING" '(#f " FROM " " FOR "))]
     [trim-leading  2 ,(lambda (arg1 arg2) (J "TRIM(LEADING "  arg1 " FROM " arg2 ")"))]
     [trim-trailing 2 ,(lambda (arg1 arg2) (J "TRIM(TRAILING " arg1 " FROM " arg2 ")"))]
     [trim-both     2 ,(lambda (arg1 arg2) (J "TRIM(BOTH "     arg1 " FROM " arg2 ")"))]
@@ -244,7 +244,7 @@
     [%array  #&1 ,(lambda args (J "ARRAY[" (J-join args ", ") "]"))]
     [%ref    #&2 ,(lambda (array . indexes) (J "(" array ")[" (J-join indexes ", ") "]"))]))
 
-(define pg-ops (append pg-ops-ext standard-ops))
+(define pg-ops (append standard-ops pg-ops-ext))
 
 (define postgresql-dialect%
   (class standard-dialect%
@@ -298,7 +298,7 @@
   `([,my-operator-symbol-rx
      ,(lambda (op) (list 2 (infix-op (format " ~a " op))))]))
 
-(define my-ops (append my-ops-ext standard-ops))
+(define my-ops (append standard-ops my-ops-ext))
 
 (define mysql-dialect%
   (class standard-dialect%
