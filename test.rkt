@@ -166,7 +166,8 @@
 
 (test-stmt-err*
  (select a$)
- (select * from T))
+ (select * from T)
+ (select * #:from (values* (1 2) ("single"))))
 
 
 ;; Bad error for: (select x #:from ,"foo") --- why?
