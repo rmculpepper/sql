@@ -20,3 +20,9 @@
 (define (value->scalar-expr-ast value)
   ;; note: equivalent to (scalar-expr-qq ,value)
   (scalar:unquote value))
+
+;; make-values*-table-expr-ast :
+;;   (listof (listof scalar-expr-ast?)) -> table-expr-ast?
+;; Invariant: inner lists must be the same length
+(define make-values*-table-expr-ast
+  table-expr:values)

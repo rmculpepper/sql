@@ -194,6 +194,22 @@
       (table-expr:values? x)
       (table-expr:select? x)))
 
+;; check-same-length : (Listof (Listof Any)) -> Boolean
+;; Returns #t IFF all inner lists are the same length.
+;; This is needed as a check for table-expr:values
+;; at both compile-time and runtime
+;; (i.e. for syntax like (values* (1 2 3) (4 5 6))
+;; in the TableExpr syntax class
+;; and the make-values*-table-expr-ast function).
+(define check-same-length
+  (match-lambda
+    ['() #t]
+    [(cons this more)
+     (define len0
+       (length this))
+     (for/and ([this (in-list more)])
+       (= len0 (length this)))]))
+
 ;; ----------------------------------------
 ;; Scalar Expressions
 
@@ -242,7 +258,8 @@
       (scalar:in-values? x)
       (scalar:some/all? x)
       (scalar:placeholder? x)
-      (scalar:inject? x)))
+      (scalar:inject? x)
+      (scalar:unquote? x)))
 
 ;; An Arity is one of
 ;; - Nat

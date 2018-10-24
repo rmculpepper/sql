@@ -390,7 +390,10 @@
   (pattern (values ~! e:ScalarExpr ...)
            #:attr ast (table-expr:values (list ($ e.ast))))
   (pattern (values* ~! [e:ScalarExpr ...] ...)
-           #:attr ast (table-expr:values ($ e.ast)))
+           #:do [(define l-rows ($ e.ast))]
+           #:fail-unless (check-same-length l-rows)
+           "values*: all rows must be the same length"
+           #:attr ast (table-expr:values l-rows))
   (pattern (~and (select ~! . _) s:Select)
            ;; was just s:Select, but this gives better errors
            #:attr ast (table-expr:select ($ s.ast))))

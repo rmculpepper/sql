@@ -25,7 +25,7 @@
    (define db-eval (make-pg-eval log-file)))
 
 @(define the-eval (make-base-eval))
-@(the-eval '(require sql))
+@(the-eval '(require sql racket/match))
 
 @defmodule[sql]
 
@@ -1069,6 +1069,42 @@ Produces a scalar expression AST representing the Racket value @racket[value].
 Equivalent to @racket[(scalar-expr-qq (unquote value))].
 
 @history[#:added "1.2"]
+}
+
+@defproc[(make-values*-table-expr-ast [l-rows (listof (listof scalar-expr-ast?))])
+         table-expr-ast?]{
+
+ Produces a table expression AST of the same kind as
+ the @racket[(values* (@#,svar[scalar-expr] ...) ...)] case of the
+ @svar[table-expr] nonterminal,
+ but where the number of rows and columns may be determined dynamically.
+
+ Note that all of the rows (i.e. the inner lists) must be of
+ the same length.
+                          
+ @history[#:added "1.3"]
+
+ @examples[
+ #:eval the-eval
+ (struct produce-item (name num type) #:transparent)
+ (define (insert-produce items)
+   (insert
+    #:into produce
+    #:columns name num type
+    #:from
+    (TableExpr:AST
+     ,(make-values*-table-expr-ast
+       (for/list ([item (in-list items)])
+         (match-define (produce-item name num type)
+           item)
+         (map value->scalar-expr-ast
+              (list name num type)))))))
+ (sql-statement->string
+  (insert-produce
+   (list (produce-item "apples" 1 "standard")
+         (produce-item "bananas" 5 "organic")
+         (produce-item "cranberries" 50 "canned"))))                       
+ ]
 }
 
 @(close-eval db-eval)
