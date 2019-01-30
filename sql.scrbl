@@ -938,9 +938,8 @@ Quasiquotation macro and predicate, respectively, for
 [maybe-temp (code:line) (code:line #:temporary)]
 [maybe-ifnotexists (code:line) (code:line #:if-not-exists)]
 
-[column-def [column-ident type maybe-not-null]]
-[maybe-not-null (code:line)
-                #:not-null]
+[column-def [column-ident type column-option ...]]
+[column-option #:not-null (code:line #:default scalar-expr)]
 
 [maybe-constraints (code:line)
                    (code:line #:constraints constraint-decl ...)]
@@ -950,7 +949,12 @@ Quasiquotation macro and predicate, respectively, for
                   (@#,lit{unique} column-ident ...)
                   (@#,lit{check} scalar-expr)
                   (@#,lit{foreign-key} column-ident ...
-                     #:references table-ident/columns)]
+                     #:references table-ident/columns
+                     action-decl ...)]
+
+[action-decl (code:line #:on-delete action)
+             (code:line #:on-update action)]
+[action #:set-null #:set-default #:cascade #:restrict #:no-action]
 
 [create-view
     (@#,lit{create-view} maybe-temp view-name
@@ -959,7 +963,10 @@ Quasiquotation macro and predicate, respectively, for
 ]
 
 @history[#:changed "1.1" @elem{Added @racket[#:if-not-exists] option
-for @lit{create-table}.}]
+          for @lit{create-table}.}
+         #:changed "1.4" @elem{Added @svar[action-decl] for @lit{foreign-key}
+          and the @racket[#:default] @svar[column-option] for @svar[column-def].                           
+          }]
 
 @deftogether[[
 @defform[(ddl-qq ddl-statement)]

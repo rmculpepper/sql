@@ -93,8 +93,13 @@
 
 (define-syntax-class ColumnDef
   #:attributes (ast) #:commit
-  (pattern [name:Ident type:ScalarExpr (~optional (~and #:not-null nn))]
-           #:attr ast (column ($ name.ast) ($ type.ast) (and ($ nn) #t))))
+  (pattern [name:Ident
+            type:ScalarExpr
+            (~alt (~optional (~and #:not-null nn))
+                  (~optional (~seq #:default default:ScalarExpr)))
+            ...]
+           #:attr ast (column ($ name.ast) ($ type.ast)
+                              (and ($ nn) #t) ($ default.ast))))
 
 (define-splicing-syntax-class TableConstraints
   #:attributes ([ast 1])
@@ -130,9 +135,18 @@
   (pattern (check e:ScalarExpr)
            #:attr ast (constraint:check ($ e.ast))
            #:attr pk? #f)
-  (pattern (foreign-key c:Ident ... #:references f:TableWColumns)
-           #:attr ast (constraint:references ($ c.ast) (car ($ f.ast)) (cdr ($ f.ast)))
+  (pattern (foreign-key c:Ident ... #:references f:TableWColumns
+                        (~alt (~optional (~seq #:on-delete delete:Action))
+                              (~optional (~seq #:on-update update:Action)))
+                        ...)
+           #:attr ast (constraint:references ($ c.ast) (car ($ f.ast)) (cdr ($ f.ast))
+                                             ($ delete.ast) ($ update.ast))
            #:attr pk? #f))
+
+(define-syntax-class Action
+  #:attributes (ast) #:commit
+  (pattern (~and k (~or #:set-null #:set-default #:cascade #:restrict #:no-action))
+           #:attr ast (string->symbol (keyword->string (syntax->datum #'k)))))
 
 (define-syntax-class CreateView
   #:attributes (ast) #:commit

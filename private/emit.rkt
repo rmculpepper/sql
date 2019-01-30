@@ -93,9 +93,12 @@
 
     (define/public (emit-column c)
       (match c
-        [(column name type not-null?)
+        [(column name type not-null? maybe-default)
          (J (emit-ident name) " " (emit-type type)
-            (if not-null? " NOT NULL" ""))]))
+            (if not-null? " NOT NULL" "")
+            (if maybe-default
+                (J " DEFAULT " (emit-scalar-expr maybe-default))
+                ""))]))
 
     (define/public (emit-constraint c)
       (match c
@@ -107,12 +110,23 @@
          (J "UNIQUE (" (emit-ident-commalist columns) ")")]
         [(constraint:check expr)
          (J "CHECK (" (emit-scalar-expr expr) ")")]
-        [(constraint:references columns foreign-table foreign-cols)
+        [(constraint:references columns foreign-table foreign-cols on-delete on-update)
+         (define (emit-action which action?)
+           (if action?
+               (J " ON " which " " (match action?
+                                     ['set-null "SET NULL"]
+                                     ['set-default "SET DEFAULT"]
+                                     ['cascade "CASCADE"]
+                                     ['restrict "RESTRICT"]
+                                     ['no-action "NO ACTION"]))
+               ""))
          (J "FOREIGN KEY (" (emit-ident-commalist columns) ") REFERENCES "
             (emit-name foreign-table)
             (if foreign-cols
                 (J "(" (emit-ident-commalist foreign-cols) ")")
-                ""))]))
+                "")
+            (emit-action "DELETE" on-delete)
+            (emit-action "UPDATE" on-update))]))
 
     ;; ----------------------------------------
     ;; With
