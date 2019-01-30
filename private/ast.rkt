@@ -51,23 +51,29 @@
 ;; - (ddl:create-table Name Boolean Boolean (Listof Column) (Listof Constraint))
 ;; - (ddl:create-table-as Name Boolean Boolean Statement)
 ;; - (ddl:create-view Name Statement)
-;; A Column is (column Ident ScalarExpr Boolean)
+;; A Column is (column Ident ScalarExpr Boolean (U #f ScalarExpr))
 (struct ddl:create-table (name temp? ifnotexists? columns constraints) #:prefab)
 (struct ddl:create-table-as (name temp? ifnotexists? select) #:prefab)
 (struct ddl:create-view (name temp? rhs) #:prefab)
-(struct column (name type not-null?) #:prefab)
+(struct column (name type not-null? maybe-default) #:prefab)
 
 ;; A Constraint is one of
 ;; - (constraint:named Ident Constraint)
 ;; - (constraint:check ScalarExpr)
 ;; - (constraint:primary-key (Listof Ident))
 ;; - (constraint:unique (Listof Ident))
-;; - (constraint:references (Listof Ident) Name (U (Listof Ident) #f))
+;; - (constraint:references (Listof Ident) Name (U (Listof Ident) #f) (U #f Action) (U #f Action))
+;; An Action is one of
+;; - 'set-null 
+;; - 'set-default 
+;; - 'cascade 
+;; - 'restrict 
+;; - 'no-action
 (struct constraint:named (name constraint) #:prefab)
 (struct constraint:check (expr) #:prefab)
 (struct constraint:primary-key (columns) #:prefab)
 (struct constraint:unique (columns) #:prefab)
-(struct constraint:references (columns foreign-table foreign-columns) #:prefab)
+(struct constraint:references (columns foreign-table foreign-columns on-delete on-update) #:prefab)
 
 ;; ----------------------------------------
 ;; Statements
