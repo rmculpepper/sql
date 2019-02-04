@@ -3,10 +3,7 @@
 #lang racket/base
 (require racket/string
          (rename-in racket/match [match-define defmatch])
-         racket/generic
-         racket/class
-         racket/format
-         "jumble.rkt")
+         racket/format)
 (provide (all-defined-out))
 
 ;; ============================================================

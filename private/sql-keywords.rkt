@@ -1,5 +1,7 @@
-#lang racket
-(require racket/date)
+#lang racket/base
+(require racket/string
+         racket/format
+         racket/set)
 (provide (all-defined-out))
 
 ;; This module contains the semi-processed tables used to generate keywords.rktd.
@@ -1543,6 +1545,7 @@ end-of-table
 ;; ================================================================================
 
 (module+ main
+  (require racket/date)
   (define dialects '(sql92 pgsql mysql sqlite -expr -function -type))
   (define h (make-hash))
   (for ([(word vals) (in-hash table)])

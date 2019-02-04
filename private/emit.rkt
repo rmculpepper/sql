@@ -1,10 +1,7 @@
 ;; Translate AST to SQL
 
 #lang racket/base
-(require racket/string
-         racket/include
-         racket/class
-         racket/list
+(require racket/class
          (rename-in racket/match [match-define defmatch])
          racket/format
          "ast.rkt"

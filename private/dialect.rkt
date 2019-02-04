@@ -2,10 +2,6 @@
 (require racket/string
          racket/include
          racket/class
-         racket/list
-         (rename-in racket/match [match-define defmatch])
-         racket/format
-         "ast.rkt"
          "jumble.rkt")
 (provide (all-defined-out))
 
