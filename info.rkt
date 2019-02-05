@@ -4,7 +4,7 @@
 ;; pkg info
 
 (define collection "sql")
-(define version "1.4")
+(define version "1.5")
 
 (define deps
   '(["base" #:version "6.3"]

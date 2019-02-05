@@ -204,7 +204,7 @@
     (define/public (emit-select-extension ext)
       (match ext
         [(select:extension order limit offset)
-         (J (if order
+         (J (if (pair? order)
                 (J " ORDER BY " (J-join (map emit-select-order order) ", "))
                 "")
             (if limit

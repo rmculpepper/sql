@@ -128,7 +128,8 @@
  [(inner-join t1 t2 #:natural) "t1 NATURAL INNER JOIN t2"]
  [(values 1 2 3) "VALUES (1, 2, 3)"]
  [(values* (1 2 3) (4 5 6)) "VALUES (1, 2, 3), (4, 5, 6)"]
- [(select y #:from ys) "SELECT y FROM ys"])
+ [(select y #:from ys) "SELECT y FROM ys"]
+ [(select y #:from ys #:limit 1) "SELECT y FROM ys LIMIT 1"])
 
 ;; ------------------------------------------------------------
 ;; Statements
