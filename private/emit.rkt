@@ -391,9 +391,9 @@
            [(union) " UNION "]
            [(except) " EXCEPT "]
            [(intersect) " INTERSECT "])
-         (case opt
-           [(all) "ALL "]
-           [else ""])
+         (match opt
+           [#t "ALL "]
+           [#f ""])
          (match corr
            [`#f ""]
            [`#t "CORRESPONDING "]
