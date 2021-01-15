@@ -129,7 +129,9 @@
  [(values 1 2 3) "VALUES (1, 2, 3)"]
  [(values* (1 2 3) (4 5 6)) "VALUES (1, 2, 3), (4, 5, 6)"]
  [(select y #:from ys) "SELECT y FROM ys"]
- [(select y #:from ys #:limit 1) "SELECT y FROM ys LIMIT 1"])
+ [(select y #:from ys #:limit 1) "SELECT y FROM ys LIMIT 1"]
+ [(union (select x #:from xs) (select y #:from ys) #:all)
+  "SELECT x FROM xs UNION ALL SELECT y FROM ys"])
 
 ;; ------------------------------------------------------------
 ;; Statements
