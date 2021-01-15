@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout project
+      uses: actions/checkout@v2
+    - name: install racket
+      run: |
+        sudo add-apt-repository ppa:plt/racket
+        sudo apt-get update
+        sudo apt-get install racket
+    - name: build package
+      run: raco pkg install --auto
+    - name: run tests
+      run: raco test test.rkt
