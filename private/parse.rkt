@@ -164,7 +164,7 @@
 (define-syntax-class WithInner
   #:attributes (ast) #:commit
   #:description #f
-  (pattern (_ rec:MaybeRec ([h:TableWColumns rhs:Statement] ...) body:Statement)
+  (pattern (_ rec:MaybeRec ([h:TableWColumns (~or rhs:TableExpr rhs:Statement)] ...) body:Statement)
            #:attr ast (statement:with ($ rec.ast) ($ h.ast) ($ rhs.ast) ($ body.ast))))
 
 (define-splicing-syntax-class MaybeRec

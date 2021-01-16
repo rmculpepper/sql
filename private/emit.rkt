@@ -137,7 +137,9 @@
          (J "WITH "
             (if rec? "RECURSIVE " "")
             (J-join (for/list ([h (in-list headers)] [rhs (in-list rhss)])
-                      (J (emit-with-header h) " AS (" (emit-statement rhs) ")"))
+                      (J (emit-with-header h) " AS (" (if (statement-ast? rhs)
+                                                          (emit-statement rhs)
+                                                          (emit-table-expr rhs)) ")"))
                     ", ")
             " "
             (emit-statement body))]))
