@@ -162,7 +162,13 @@
          #:where (= b ?))
  (insert #:into T #:columns a b c #:from (select * #:from S #:where (= d ?)))
  (insert #:into T #:set [a 1] [b 2] [c 3])
- (update T #:set [a (+ a 1)] [b (- b 1)] #:where (< T.a 0)))
+ (update T #:set [a (+ a 1)] [b (- b 1)] #:where (< T.a 0))
+ (with #:recursive
+        ([(cnt x) (union
+                   (select 1)
+                   (select (+ 1 x)
+                           #:from cnt))])
+        (select x #:from cnt)))
 
 (define-syntax-rule (test-stmt-err* s ...)
   (begin (-test (check-exn #rx"" (lambda () (convert-syntax-error s)))) ...))
