@@ -13,6 +13,7 @@
  table-ref-ast?
  table-expr-ast?
  scalar-expr-ast?
+ select-item-ast?
  ident-ast?
  name-ast?
 
@@ -24,6 +25,7 @@
  scalar-expr-qq
  statement-qq
  select-qq
+ select-item-qq
  ddl-qq
 
  sql

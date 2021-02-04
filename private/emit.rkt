@@ -2,6 +2,7 @@
 
 #lang racket/base
 (require racket/class
+         racket/list
          (rename-in racket/match [match-define defmatch])
          racket/format
          "ast.rkt"
@@ -156,7 +157,7 @@
         [(statement:select distinct vals from where groupby having ext)
          (J "SELECT "
             (case distinct [(all) "ALL "] [(distinct) "DISTINCT "] [(#f) ""])
-            (J-join (map emit-select-item vals) ", ")
+            (J-join (map emit-select-item (flatten vals)) ", ")
             (emit-select-from from)
             (emit-where where)
             (emit-select-groupby groupby)

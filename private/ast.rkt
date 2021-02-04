@@ -110,9 +110,17 @@
 ;; A SelectItem is one of
 ;; - (select-item:as ScalarExpr Ident)
 ;; - (select-item:all)
+;; * (list 'unquote Syntax)
+;; + (Listof SelectItem)
 ;; - ScalarExpr
 (struct select-item:as (expr name) #:prefab)
 (struct select-item:all () #:prefab)
+
+(define (select-item-ast? v)
+  (or (select-item:as? v)
+      (select-item:all? v)
+      (and (list? v) (andmap select-item-ast? v))
+      (scalar-expr-ast? v)))
 
 ;; A SelectExtension is
 ;; (select:extension (Listof SelectOrder) (U ScalarExpr #f) (U ScalarExpr #f))

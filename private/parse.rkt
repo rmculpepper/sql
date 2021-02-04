@@ -232,7 +232,10 @@
 
 (define-syntax-class SelectItem
   #:attributes (ast) #:commit
-  #:datum-literals (as *)
+  #:datum-literals (as * SelectItem:AST)
+  (pattern (SelectItem:AST ~! u)
+           #:declare u (UnquoteExpr/c #'select-item-ast?)
+           #:attr ast ($ u.ast))
   (pattern (as ~! expr:ScalarExpr column:Ident)
            #:attr ast (select-item:as ($ expr.ast) ($ column.ast)))
   (pattern *

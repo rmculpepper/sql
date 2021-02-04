@@ -921,6 +921,21 @@ Quasiquotation macro and predicate, respectively, for
 ]
 }
 
+@deftogether[[
+@defform[(select-item-qq select-item)]
+@defproc[(select-item-ast? [v any/c]) boolean?]
+]]{
+
+Quasiquotation macro and predicate, respectively, for
+@svar[select-item]. Note that a @svar[select-item] AST cannot be used
+with @racket[sql-ast->string] unless it is just @svar[scalar-expr].
+
+A @svar[select-item] AST can be a list of @svar[select-item] ASTs,
+representing multiple items to be spliced into the @tt{SELECT}
+statement.
+
+@history[#:added "1.6"]}
+
 @; ----------------------------------------
 @subsection[#:tag "ddl-statements"]{SQL DDL Statements}
 
@@ -1012,6 +1027,9 @@ computed from an untrusted source. Use placeholders or
 [name ....
        (@#,lit{Name:AST} (@#,lit{unquote} ast-racket-expr))]
 
+[select-item ....
+             (@#,lit{SelectItem:AST} (@#,lit{unquote} ast-racket-expr))]
+
 [scalar-expr ....
              (@#,lit{ScalarExpr:AST} (@#,lit{unquote} ast-racket-expr))
              (@#,lit{ScalarExpr:INJECT} (@#,lit{unquote} string-racket-expr))]
@@ -1025,7 +1043,9 @@ computed from an untrusted source. Use placeholders or
            (@#,lit{TableRef:INJECT} (@#,lit{unquote} string-racket-expr))]
 ]
 
-@history[#:changed "1.2" @elem{Added @lit{Ident:AST} and @lit{Name:AST}}]
+@history[#:changed "1.2" @elem{Added @lit{Ident:AST} and @lit{Name:AST}.}
+         #:changed "1.6" @elem{Added @lit{SelectItem:AST}. See note under
+           @racket[select-item-ast?] about lists.}]
 
 
 @defproc[(make-ident-ast [s (or/c symbol? string?)])

@@ -224,4 +224,5 @@
   [scalar-expr-qq ScalarExpr]
   [statement-qq Statement]
   [select-qq Select]
+  [select-item-qq SelectItem]
   [ddl-qq DDL])
