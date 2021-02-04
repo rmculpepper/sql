@@ -897,13 +897,20 @@ clause may not also be used.
 
 @racketgrammar*[
 
-[with-statement (@#,lit{with} maybe-rec ([table-ident/columns statement])
+[with-statement (@#,lit{with} maybe-rec ([table-ident/columns cte])
                   statement)]
 [maybe-rec (code:line)
            #:recursive]
 [table-ident/columns table-ident
                      (table-ident column-ident ...)]
+[cte statement table-expr]
 ]
+
+Different database systems place different restrictions on what kinds
+of statements and table expressions they allow within @tt{WITH}
+statements.
+
+@history[#:changed "1.6" @elem{Allowed @svar[table-expr] for right-hand side.}]
 
 @deftogether[[
 @defform[(statement-qq statement)]
