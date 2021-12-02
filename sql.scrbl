@@ -864,7 +864,8 @@ clause may not also be used.
                (code:line #:columns column-ident ...)]
 
 [maybe-conflict (code:line)
-                (code:line #:or-ignore)]
+                (code:line #:or-ignore)
+		(code:line #:or-fail)]
 ]
 
 @history[#:changed "1.1" @elem{Added @racket[#:or-ignore].}]

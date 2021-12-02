@@ -328,6 +328,8 @@
   #:attributes (ast)
   (pattern (~seq #:or-ignore)
            #:attr ast 'ignore)
+  (pattern (~seq #:or-fail)
+           #:attr ast 'fail)
   (pattern (~seq)
            #:attr ast #f))
 

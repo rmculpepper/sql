@@ -168,7 +168,9 @@
                    (select 1)
                    (select (+ 1 x)
                            #:from cnt))])
-        (select x #:from cnt)))
+        (select x #:from cnt))
+ (insert #:into T #:set [a 1] [b 2] [c 3] #:or-ignore)
+ (insert #:into T #:set [a 1] [b 2] [c 3] #:or-fail))
 
 (define-syntax-rule (test-stmt-err* s ...)
   (begin (-test (check-exn #rx"" (lambda () (convert-syntax-error s)))) ...))

@@ -222,6 +222,11 @@
         [(statement:insert table columns source on-conflict)
          (case on-conflict
            [(#f) (J "INSERT INTO " (emit-insert* i))]
+           [(fail)
+            (case (send dialect insert/on-conflict-style)
+              [(sqlite3) (J "INSERT OR FAIL INTO " (emit-insert* i))]
+              [else (error 'emit-insert "ignore option not supported~a"
+                           (send dialect error-line))])]
            [(ignore)
             (case (send dialect insert/on-conflict-style)
               [(sqlite3) (J "INSERT OR IGNORE INTO " (emit-insert* i))]
