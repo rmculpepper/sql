@@ -105,6 +105,10 @@
    [(%ref x 1 2 3) "(x)[1, 2, 3]"]
    ))
 
+(parameterize ((check-dialects '(sqlite3)))
+  (test-se*
+   [(typeof name "text") "TYPEOF(name)='text'"]
+   ))
 
 ;; ----------------------------------------
 ;; Table Refs

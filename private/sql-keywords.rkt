@@ -1530,6 +1530,7 @@ end-of-table
     ( tinytext                                   mysql         -type)
     ( trim                           sql92 pgsql               -function)
     ( true                           sql92 pgsql mysql         -expr)
+    ( typeof                                           sqlite  -function)
     ( upper                          sql92                     -function)
     ( varbinary                                  mysql         -type)
     ( varchar                        sql92 pgsql mysql         -type)

@@ -330,6 +330,7 @@
     [trim-trailing 2 ,(fun-op "RTRIM")]
     [trim-both     2 ,(fun-op "TRIM")]
     [count-all     0 ,(lambda () "COUNT(*)")]
+    [typeof        2 ,(lambda (arg1 arg2) (J "TYPEOF(" arg1 ")=" arg2))]
 
     ;; Operators
     [||           #&1 ,(infix-op " || ")] ;; HACK! Note "||" reads as the empty symbol!

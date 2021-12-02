@@ -311,6 +311,7 @@
     [trim-trailing  2]
     [trim-both      2]
     [count-all      0]
+    [typeof         2]
 
     ;; Operators
     [||           #&1]
