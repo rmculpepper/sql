@@ -132,7 +132,7 @@
 ;; ----------------------------------------
 ;; Insert
 
-;; An Insert is (statement:insert Name (U (Listof Ident) #f) TableExpr (U 'ignore #f))
+;; An Insert is (statement:insert Name (U (Listof Ident) #f) TableExpr (U 'ignore #f 'fail))
 (struct statement:insert (table columns source on-conflict) #:prefab)
 
 ;; ----------------------------------------
