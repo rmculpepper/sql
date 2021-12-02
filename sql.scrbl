@@ -655,6 +655,12 @@ prefixed by a dot.
 (%ref x 1)                    (code:comment "(x)[1]")
 (%ref x 1 2 3)                (code:comment "(x)[1,2,3]")
 ]}
+
+@item{Typechecking (SQLite extension):
+
+@racketblock[
+(typeof x "text")                (code:comment "TYPEOF(x)='text'")
+]}
 ]
 
 
