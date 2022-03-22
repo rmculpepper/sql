@@ -225,7 +225,7 @@
            [(fail)
             (case (send dialect insert/on-conflict-style)
               [(sqlite3) (J "INSERT OR FAIL INTO " (emit-insert* i))]
-              [else (error 'emit-insert "ignore option not supported~a"
+              [else (error 'emit-insert "fail option not supported~a"
                            (send dialect error-line))])]
            [(ignore)
             (case (send dialect insert/on-conflict-style)

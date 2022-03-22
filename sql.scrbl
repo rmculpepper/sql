@@ -865,7 +865,7 @@ clause may not also be used.
 
 [maybe-conflict (code:line)
                 (code:line #:or-ignore)
-		(code:line #:or-fail)]
+                (code:line #:or-fail)]
 ]
 
 @history[#:changed "1.1" @elem{Added @racket[#:or-ignore].}]
